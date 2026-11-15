@@ -187,7 +187,7 @@ class MemoryManager:
             hist = (await sess.execute(
                 select(Memory)
                 .where(Memory.scope == Memory.SCOPE_HISTORY)
-                .order_by(Memory.key, Memory.updated_at.desc())
+                .order_by(Memory.updated_at.desc())
             )).scalars().all()
             seen: dict[str, int] = {}
             stale_ids: list[str] = []

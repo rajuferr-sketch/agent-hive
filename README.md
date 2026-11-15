@@ -216,7 +216,7 @@ Every agent also has its own ordered provider chain (see `configs/agents/*.yaml`
 |---|---|---|---|---|
 | **A** | Simple | `< 0.25` (`simple_threshold`) | 1 best-matched agent | single execution |
 | **C** | Adaptive | `0.25 – 0.55` (`adaptive_threshold`) | 2–10 agents, one per workstream | workstreams → integration → QA → validation |
-| **B** | Collective | `> 0.55` (or forced) | all 20 agents | workstreams + individual contributions → cross-review → integration → QA → validation |
+| **B** | Collective | `≥ 0.55` (or forced) | all 20 agents | workstreams + individual contributions → cross-review → integration → QA → validation |
 
 Complexity is a heuristic combining request length, domain breadth and multi-part structure (`orchestrator/planner.py`). Thresholds are in `configs/system.yaml` (`simple_threshold: 0.25`, `adaptive_threshold: 0.55`, `complex_threshold: 0.75` is a reserved informational threshold — mode selection uses the first two). Force any mode with `--mode` / `"mode"` in the API.
 

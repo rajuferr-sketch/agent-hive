@@ -26,6 +26,7 @@ htmlcov/
 # Runtime data (database, logs, memory dumps)
 data/
 logs/
+*.log
 *.db
 *.sqlite3
 

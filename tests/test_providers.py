@@ -5,8 +5,8 @@ from __future__ import annotations
 
 import pytest
 
-from agent_hive.core.errors import ProviderError
 from agent_hive.config.settings import get_settings
+from agent_hive.core.errors import ProviderError
 from agent_hive.providers.base import LLMProvider
 from agent_hive.providers.factory import ProviderChain
 from agent_hive.providers.mock import MOCK_TAG, MockProvider

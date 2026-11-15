@@ -153,10 +153,16 @@ class AgentRuntime:
 
     async def _heartbeat_loop(self) -> None:
         interval = get_settings().heartbeat_interval
+        beats = 0
         while True:
             try:
                 await asyncio.sleep(interval)
                 await self.sync_registry()
+                beats += 1
+                if beats % 20 == 0:  # periodic memory retention maintenance
+                    pruned = await self.memory.prune()
+                    if any(pruned.values()):
+                        log.info("Memory pruned: %s", pruned)
             except asyncio.CancelledError:
                 break
             except Exception:  # noqa: BLE001 — supervision never dies

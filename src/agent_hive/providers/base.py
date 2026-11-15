@@ -24,6 +24,11 @@ class LLMProvider(abc.ABC):
 
     name: str = "abstract"
 
+    @property
+    def descriptions(self) -> list[dict[str, Any]]:
+        """Provider identity for registry/API display (single-provider chains)."""
+        return [{"provider": self.name, "model": getattr(self, "model", "n/a")}]
+
     @abc.abstractmethod
     async def complete(
         self,

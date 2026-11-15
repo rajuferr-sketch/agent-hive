@@ -13,9 +13,9 @@ from agent_hive.core.errors import AgentError
 from agent_hive.tools.registry import REGISTRY
 
 _SECRET_PATTERNS = [
-    r"(?i)(api[_-]?key\s*[:=]\s*['\"][A-Za-z0-9_\-]{16,})",
-    r"(?i)(secret\s*[:=]\s*['\"][A-Za-z0-9_\-]{12,})",
-    r"(?i)(password\s*[:=]\s*['\"][^'\"]{8,})",
+    r'(?i)["\']?api[_-]?key["\']?\s*[:=]\s*["\'][A-Za-z0-9_\-]{16,}["\']',
+    r'(?i)["\']?secret["\']?\s*[:=]\s*["\'][A-Za-z0-9_\-]{12,}["\']',
+    r'(?i)["\']?password["\']?\s*[:=]\s*["\'][^"\']{8,}["\']',
     r"(?i)(bearer\s+[A-Za-z0-9_\-\.=]{20,})",
     r"-----BEGIN (?:RSA |EC |OPENSSH )?PRIVATE KEY-----",
 ]
