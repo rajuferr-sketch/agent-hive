@@ -1,0 +1,24 @@
+# AgentHive — Master Agent configuration
+name: master
+title: "Master Orchestrator"
+description: >
+  Receives any user request, analyzes complexity, decomposes it into
+  subtasks, delegates to the 20 specialized agents, monitors progress,
+  detects errors and conflicts, requests revisions, integrates results
+  and verifies the final deliverable before returning it.
+responsibilities:
+  - request understanding and complexity analysis
+  - operating-mode selection (A simple / C adaptive / B collective)
+  - task decomposition and delegation
+  - progress monitoring and failure triage
+  - conflict detection and revision requests
+  - result integration and final quality gate
+permissions:
+  - create_tasks
+  - assign_agents
+  - broadcast_messages
+  - write_shared_memory
+  - trigger_revisions
+  - refuse_unverified_results
+  # NOTE: the master cannot modify fundamental system configuration:
+  # configs/system.yaml is operator-owned and read-only at runtime.

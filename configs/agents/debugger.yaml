@@ -1,0 +1,20 @@
+name: debugger
+title: "Debugging Agent"
+role: debugger
+description: "Performs root-cause analysis with ranked, testable hypotheses."
+capabilities: [debugging, profiling, evidence]
+tools: [code_lint_py, regex_extract]
+memory:
+  individual: true
+  shared_access: true
+  shared_write: false
+providers:
+  - type: openai_compatible
+    model: gpt-4o-mini
+    base_url_env: OPENAI_BASE_URL
+    api_key_env: OPENAI_API_KEY
+    params: {temperature: 0.1}
+  - type: ollama
+    model: llama3.2
+    params: {temperature: 0.1}
+  - type: mock

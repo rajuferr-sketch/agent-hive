@@ -1,0 +1,20 @@
+name: architect
+title: "Architecture Agent"
+role: architect
+description: "Designs system architecture with components, data flow and trade-offs."
+capabilities: [architecture, scalability, design]
+tools: [json_validate, summarize]
+memory:
+  individual: true
+  shared_access: true
+  shared_write: true
+providers:
+  - type: openai_compatible
+    model: gpt-4o-mini
+    base_url_env: OPENAI_BASE_URL
+    api_key_env: OPENAI_API_KEY
+    params: {temperature: 0.3}
+  - type: ollama
+    model: llama3.2
+    params: {temperature: 0.3}
+  - type: mock

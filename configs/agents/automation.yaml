@@ -1,0 +1,20 @@
+name: automation
+title: "Automation Agent"
+role: automation
+description: "Builds idempotent CI/CD pipelines and DevOps automation scripts."
+capabilities: [automation, deployment, monitoring]
+tools: [code_lint_py, file_write]
+memory:
+  individual: true
+  shared_access: true
+  shared_write: false
+providers:
+  - type: openai_compatible
+    model: gpt-4o-mini
+    base_url_env: OPENAI_BASE_URL
+    api_key_env: OPENAI_API_KEY
+    params: {temperature: 0.3}
+  - type: ollama
+    model: llama3.2
+    params: {temperature: 0.3}
+  - type: mock

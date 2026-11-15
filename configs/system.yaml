@@ -1,0 +1,22 @@
+# AgentHive — global orchestration & quality configuration.
+# Per-agent configuration lives in agents/*.yaml.
+
+# --- Operating-mode thresholds (complexity 0..1) -----------------------------
+simple_threshold: 0.25      # below: Mode A — one agent, independent
+adaptive_threshold: 0.55    # below: Mode C — 2-10 agents
+complex_threshold: 0.75     # above: Mode B — all 20 agents, collective
+# (0.55–0.75 uses Mode C with the full pipeline: review + integration + QA)
+
+# --- Collaboration -----------------------------------------------------------
+adaptive_min_agents: 3
+adaptive_max_agents: 10
+allow_cross_review: true
+
+# --- Quality control ---------------------------------------------------------
+qa_required_score: 0.7      # minimum score to deliver (0..1)
+qa_code_check: true         # AST-check embedded python blocks (never executed)
+qa_secret_scan: true        # reject deliverables containing hard-coded secrets
+qa_requirement_check: true  # keyword coverage of the original requirements
+
+# --- Task runtime ------------------------------------------------------------
+# Default timeouts/retries live in .env (DEFAULT_TASK_TIMEOUT, DEFAULT_MAX_RETRIES).

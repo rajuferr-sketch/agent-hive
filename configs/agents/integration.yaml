@@ -1,0 +1,20 @@
+name: integration
+title: "Integration Agent"
+role: integration
+description: "Merges multi-agent contributions into one coherent, conflict-resolved artifact."
+capabilities: [integration, coordination, synthesis]
+tools: [json_validate, dedupe_lines]
+memory:
+  individual: true
+  shared_access: true
+  shared_write: true
+providers:
+  - type: openai_compatible
+    model: gpt-4o-mini
+    base_url_env: OPENAI_BASE_URL
+    api_key_env: OPENAI_API_KEY
+    params: {temperature: 0.3}
+  - type: ollama
+    model: llama3.2
+    params: {temperature: 0.3}
+  - type: mock

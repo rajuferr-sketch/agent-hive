@@ -1,0 +1,44 @@
+# AgentHive — local / staging deployment (PostgreSQL + API server)
+#
+# Secrets are never hardcoded here: set POSTGRES_PASSWORD and OPENAI_API_KEY
+# in your shell environment or in a .env file next to this compose file
+# (see .env.example). Values referenced with ${VAR:-default} are passthroughs.
+
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: agenthive
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-agenthive}
+      POSTGRES_DB: agenthive
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U agenthive -d agenthive"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    restart: unless-stopped
+
+  app:
+    build: .
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      DATABASE_URL: postgresql+asyncpg://agenthive:${POSTGRES_PASSWORD:-agenthive}@db:5432/agenthive
+      ALLOW_MOCK: "true"
+      # Credential passthrough — real values live only in your environment.
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
+      OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://localhost:11434}
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./workspace:/app/workspace
+    command: sh -c "agent-hive init-db && agent-hive start"
+    restart: unless-stopped
+
+volumes:
+  pgdata:

@@ -1,0 +1,20 @@
+name: security
+title: "Security Agent"
+role: security
+description: "Models threats and defines concrete, severity-ranked security mitigations."
+capabilities: [security, threat_modeling, compliance]
+tools: [secret_scan, regex_extract]
+memory:
+  individual: true
+  shared_access: true
+  shared_write: false
+providers:
+  - type: openai_compatible
+    model: gpt-4o-mini
+    base_url_env: OPENAI_BASE_URL
+    api_key_env: OPENAI_API_KEY
+    params: {temperature: 0.3}
+  - type: ollama
+    model: llama3.2
+    params: {temperature: 0.3}
+  - type: mock
