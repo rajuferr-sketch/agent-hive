@@ -96,7 +96,7 @@ class Hive:
     def status(self) -> dict[str, Any]:
         """Non-async snapshot for the API/CLI status endpoints."""
         return {
-            "version": "1.0.0",
+            "version": "1.0.1",
             "agents_loaded": len(self.runtime.agents),
             "agent_names": list(self.runtime.agents),
             "mock_allowed": self.settings.allow_mock,

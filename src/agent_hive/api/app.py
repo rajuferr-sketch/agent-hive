@@ -65,7 +65,7 @@ def create_app() -> FastAPI:
     app = FastAPI(
         title="AgentHive",
         description="Advanced multi-agent orchestration: 1 Master Agent + 20 specialized AI agents.",
-        version="1.0.0",
+        version="1.0.1",
         lifespan=lifespan,
     )
     app.add_middleware(

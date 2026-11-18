@@ -1,5 +1,5 @@
 # AgentHive — one-shot installation script (Windows PowerShell).
-# Requires Python 3.11+.
+# Requires Python 3.10+.
 
 $ErrorActionPreference = "Stop"
 
@@ -33,7 +33,7 @@ function Find-Python {
 $python = Find-Python
 if (-not $python) {
     Write-Host "ERROR: no Python interpreter found." -ForegroundColor Red
-    Write-Host "Install Python 3.11+ from https://www.python.org/downloads/ and re-run."
+    Write-Host "Install Python 3.10+ from https://www.python.org/downloads/ and re-run."
     exit 1
 }
 
@@ -43,8 +43,8 @@ if ($LASTEXITCODE -ne 0) {
     exit 1
 }
 $parts = $versionOutput.Split(".")
-if ([int]$parts[0] -lt 3 -or ([int]$parts[0] -eq 3 -and [int]$parts[1] -lt 11)) {
-    Write-Host "ERROR: Python >= 3.11 is required (found: $versionOutput at $python)." -ForegroundColor Red
+if ([int]$parts[0] -lt 3 -or ([int]$parts[0] -eq 3 -and [int]$parts[1] -lt 10)) {
+    Write-Host "ERROR: Python >= 3.10 is required (found: $versionOutput at $python)." -ForegroundColor Red
     exit 1
 }
 Write-Host "==> Using Python $versionOutput at $python"

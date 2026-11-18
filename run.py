@@ -42,6 +42,7 @@ def main() -> int:
 
     if args.chat:
         os.environ["AGENT_HIVE_HOST_MODE"] = "1"
+        os.environ.setdefault("DEFAULT_TASK_TIMEOUT", "600")
 
     if args.text and args.text[0] == "demo":
         name = args.text[1] if len(args.text) > 1 else "logistica"

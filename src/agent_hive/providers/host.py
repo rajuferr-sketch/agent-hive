@@ -35,7 +35,7 @@ class HostProvider(LLMProvider):
         model: str = "chat-host",
         request_dir: str | None = None,
         response_dir: str | None = None,
-        timeout: float = 300.0,
+        timeout: float = 600.0,
         poll_interval: float = 1.0,
         params: dict[str, Any] | None = None,
     ) -> None:

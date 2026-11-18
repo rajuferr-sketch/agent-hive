@@ -1,5 +1,6 @@
 # Using AgentHive inside an AI chat
 
+0. Install dependencies once: `pip install -r requirements.txt`.
 1. Download/clone the repository.
 2. Run `python run.py --chat "your request"`.
 3. AgentHive writes one JSON file per agent call into `./host_requests/`.

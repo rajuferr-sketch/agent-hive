@@ -6,7 +6,8 @@ AgentHive is a multi-agent orchestration system: 1 Master Agent + 20 specialized
 ```bash
 python run.py "your request"
 ```
-This creates the environment, the database and runs the mission. No install step needed.
+First install dependencies once: `pip install -r requirements.txt`
+Then run: `python run.py "your request"` (creates the database and runs the mission).
 
 ## Commands
 - `python run.py "request"` — run a mission (Markdown output).

@@ -15,7 +15,7 @@
 python run.py "Write a short haiku about automated testing in Python"
 ```
 
-No install step, no API key required (deterministic mock provider). Output is Markdown.
+Install once: `pip install -r requirements.txt`. No API key required (deterministic mock provider). Output is Markdown.
 
 ---
 
@@ -76,7 +76,7 @@ flowchart TB
 **Linux / macOS / WSL / Git Bash:**
 
 ```bash
-git clone https://github.com/agent-hive/agent-hive.git
+git clone https://github.com/rajuferr-sketch/agent-hive.git
 cd agent-hive
 bash scripts/install.sh     # creates .venv, installs deps, copies .env.example → .env
 source .venv/bin/activate
@@ -87,7 +87,7 @@ agent-hive start            # API on http://127.0.0.1:8000
 **Windows PowerShell:**
 
 ```powershell
-git clone https://github.com/agent-hive/agent-hive.git
+git clone https://github.com/rajuferr-sketch/agent-hive.git
 cd agent-hive
 .\scripts\install.ps1       # creates .venv, installs deps, copies .env.example → .env
 .venv\Scripts\Activate.ps1
@@ -110,7 +110,7 @@ The compose stack starts `db` (health-checked) and `app` (non-root user, `agent-
 ### Path 3 — From source (dev)
 
 ```bash
-git clone https://github.com/agent-hive/agent-hive.git
+git clone https://github.com/rajuferr-sketch/agent-hive.git
 cd agent-hive
 python -m venv .venv
 source .venv/bin/activate          # Windows: .venv\Scripts\activate
