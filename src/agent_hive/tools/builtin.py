@@ -131,9 +131,44 @@ async def file_read(path: str) -> dict[str, Any]:
     return {"path": path, "size": target.stat().st_size, "content": content[:100_000]}
 
 
+async def document_download(url: str) -> dict[str, Any]:
+    """Download and parse a document (PDF/DOCX/HTML/TXT/MD)."""
+    from agent_hive.ingestion.document import download_document
+
+    return await download_document(url)
+
+
 async def http_get(url: str, timeout: float = 10.0) -> dict[str, Any]:
     """Fetch a URL (requires ENABLE_HTTP_TOOLS=true)."""
+    import ipaddress
+    import os
+    import socket
+    from urllib.parse import urlparse
+
     import httpx
+
+    parsed = urlparse(url)
+    if parsed.scheme not in ("http", "https"):
+        raise AgentError("Only http/https URLs are allowed")
+    host = parsed.hostname
+    if not host:
+        raise AgentError("Invalid URL")
+    # SSRF protection: resolve and block private/reserved ranges.
+    try:
+        infos = socket.getaddrinfo(host, None)
+    except socket.gaierror as exc:
+        raise AgentError(f"Cannot resolve host: {exc}") from exc
+    for info in infos:
+        addr = info[4][0]
+        ip = ipaddress.ip_address(addr)
+        if (ip.is_private or ip.is_loopback or ip.is_link_local
+                or ip.is_reserved or ip.is_multicast):
+            raise AgentError(f"Blocked request to non-public address {ip}")
+    # Optional allowlist
+    allowlist = os.getenv("HTTP_ALLOWLIST", "").split(",")
+    allowlist = [a.strip() for a in allowlist if a.strip()]
+    if allowlist and host not in allowlist:
+        raise AgentError(f"Host {host} not in HTTP_ALLOWLIST")
 
     async with httpx.AsyncClient(timeout=timeout) as client:
         resp = await client.get(url)
@@ -187,6 +222,7 @@ def register_builtins() -> None:
     REGISTRY.register("file_read", "Read a file from the sandboxed workspace", "file", file_read)
     REGISTRY.register("file_write", "Write a file to the sandboxed workspace", "file", file_write)
     REGISTRY.register("http_get", "Fetch a URL (requires ENABLE_HTTP_TOOLS)", "http", http_get)
+    REGISTRY.register("document_download", "Download and parse a document", "http", document_download)
 
 
 register_builtins()

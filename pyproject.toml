@@ -36,6 +36,7 @@ dependencies = [
 [project.optional-dependencies]
 server = ["uvicorn[standard]>=0.29"]
 postgres = ["asyncpg>=0.29"]
+documents = ["pypdf>=4.0", "python-docx>=1.1"]
 dev = [
     "pytest>=8.1",
     "pytest-asyncio>=0.23",

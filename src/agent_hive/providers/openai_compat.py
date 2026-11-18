@@ -38,13 +38,22 @@ class OpenAICompatProvider(LLMProvider):
         api_key_env: str = "OPENAI_API_KEY",
         params: dict[str, Any] | None = None,
         timeout: float = 120.0,
+        api_key: str | None = None,
+        headers: dict[str, str] | None = None,
     ) -> None:
         self.model = model
         self.base_url = base_url.rstrip("/")
         self.api_key_env = api_key_env
         self.params = params or {}
         self.timeout = timeout
-        self._client = httpx.AsyncClient(timeout=timeout, verify=shared_ssl_context())
+        if api_key is None:
+            api_key = os.getenv(api_key_env) if api_key_env else os.getenv("OPENAI_API_KEY")
+        self._headers = headers or {}
+        if api_key and "Authorization" not in self._headers:
+            self._headers["Authorization"] = f"Bearer {api_key}"
+        self._client = httpx.AsyncClient(
+            timeout=timeout, headers=self._headers, verify=shared_ssl_context()
+        )
 
     @classmethod
     def from_config(cls, cfg: Any) -> OpenAICompatProvider:
@@ -54,22 +63,27 @@ class OpenAICompatProvider(LLMProvider):
             base_url = os.getenv(cfg.base_url_env, "")
         if not base_url:
             base_url = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
-        api_key = os.getenv(cfg.api_key_env) if cfg.api_key_env else os.getenv("OPENAI_API_KEY")
-        headers = {"Authorization": f"Bearer {api_key}"} if api_key else {}
-        client = httpx.AsyncClient(
-            timeout=cfg.params.pop("_timeout", 120.0),
-            headers=headers,
-            verify=shared_ssl_context(),
+        timeout = 120.0
+        params = dict(cfg.params or {})
+        if "_timeout" in params:
+            try:
+                timeout = float(params.pop("_timeout"))
+            except (TypeError, ValueError):
+                pass
+        params = {k: v for k, v in params.items() if not k.startswith("_")}
+        api_key = None
+        if cfg.api_key_env:
+            api_key = os.getenv(cfg.api_key_env)
+        elif os.getenv("OPENAI_API_KEY"):
+            api_key = os.getenv("OPENAI_API_KEY")
+        return cls(
+            model=cfg.model,
+            base_url=base_url,
+            api_key_env=cfg.api_key_env or "OPENAI_API_KEY",
+            params=params,
+            timeout=timeout,
+            api_key=api_key,
         )
-        provider = cls.__new__(cls)
-        LLMProvider.__init__(provider)  # no-op, ABC without state
-        provider.model = cfg.model
-        provider.base_url = base_url.rstrip("/")
-        provider.api_key_env = cfg.api_key_env or "OPENAI_API_KEY"
-        provider.params = {k: v for k, v in (cfg.params or {}).items() if not k.startswith("_")}
-        provider.timeout = 120.0
-        provider._client = client
-        return provider
 
     async def complete(
         self, messages: list[dict[str, str]], **params: Any

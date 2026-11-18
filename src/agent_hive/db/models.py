@@ -169,6 +169,34 @@ class EventLog(Base):
     data: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
 
+class Document(Base):
+    __tablename__ = "documents"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_gen_id)
+    url: Mapped[str] = mapped_column(Text, default="")
+    path: Mapped[str] = mapped_column(Text, default="")
+    title: Mapped[str] = mapped_column(String(512), default="")
+    author: Mapped[str] = mapped_column(String(256), default="")
+    content_type: Mapped[str] = mapped_column(String(128), default="")
+    pages: Mapped[int] = mapped_column(Integer, default=0)
+    content_hash: Mapped[str] = mapped_column(String(64), default="")
+    status: Mapped[str] = mapped_column(String(32), default="pending")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+
+
+class Chunk(Base):
+    __tablename__ = "chunks"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_gen_id)
+    document_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("documents.id", ondelete="CASCADE"), index=True
+    )
+    idx: Mapped[int] = mapped_column(Integer, default=0)
+    text: Mapped[str] = mapped_column(Text, default="")
+    embedding: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+
+
 class Verification(Base):
     __tablename__ = "verifications"
 

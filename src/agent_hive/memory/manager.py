@@ -70,6 +70,11 @@ class MemoryManager:
         session: AsyncSession | None = None,
     ) -> Memory:
         """Upsert a shared entry; the previous version is archived."""
+        from agent_hive.tools.builtin import secret_scan
+
+        scan = await secret_scan(__import__("json").dumps(value, ensure_ascii=False))
+        if not scan["clean"]:
+            raise MemoryError_("Potential secret detected in shared memory write")
         async def _write(sess: AsyncSession) -> Memory:
             existing = await MemoryManager._find_in(
                 sess, None, Memory.SCOPE_SHARED, key
