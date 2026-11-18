@@ -8,6 +8,12 @@ messages        persistent internal message bus
 memories        3-tier memory (individual / shared / history) with versioning
 events          append-only operation audit log
 verifications   quality-control verdicts for tasks
+documents       ingested documents (PDF/DOCX/HTML/TXT/MD)
+chunks          text chunks + embeddings for retrieval (RAG-ready)
+issues          issue tracker (open/in_progress/blocked/resolved/closed)
+issue_comments  threaded discussion on issues
+pull_requests   PR lifecycle (open/changes_requested/approved/merged/closed)
+pr_reviews      per-agent review verdicts on pull requests
 """
 
 from __future__ import annotations
@@ -207,3 +213,125 @@ class Verification(Base):
     score: Mapped[float] = mapped_column(Float, default=0.0)
     findings: Mapped[list[Any]] = mapped_column(JSON, default=list)
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+
+
+class Issue(Base):
+    __tablename__ = "issues"
+
+    # Status machine:
+    # open ──▶ in_progress ──▶ resolved ──▶ closed
+    #   │            │
+    #   └──▶ blocked └──▶ blocked
+    # closed/resolved ──reopen──▶ open
+    STATUS_OPEN = "open"
+    STATUS_IN_PROGRESS = "in_progress"
+    STATUS_BLOCKED = "blocked"
+    STATUS_RESOLVED = "resolved"
+    STATUS_CLOSED = "closed"
+    OPEN_STATUSES = {STATUS_OPEN, STATUS_IN_PROGRESS, STATUS_BLOCKED}
+    ALL_STATUSES = {STATUS_OPEN, STATUS_IN_PROGRESS, STATUS_BLOCKED,
+                    STATUS_RESOLVED, STATUS_CLOSED}
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_gen_id)
+    number: Mapped[int] = mapped_column(Integer, unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(256))
+    description: Mapped[str] = mapped_column(Text, default="")
+    status: Mapped[str] = mapped_column(String(32), default=STATUS_OPEN, index=True)
+    priority: Mapped[int] = mapped_column(Integer, default=5)  # 1 (highest) .. 9
+    labels: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    reporter: Mapped[str] = mapped_column(String(64), default="api")
+    assignee: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
+    related_task_id: Mapped[str | None] = mapped_column(
+        String(32), ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=_utcnow, onupdate=_utcnow
+    )
+    closed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    comments: Mapped[list[IssueComment]] = relationship(
+        back_populates="issue", cascade="all, delete-orphan",
+        lazy="selectin", order_by="IssueComment.created_at",
+    )
+
+    __table_args__ = (Index("ix_issues_status_priority", "status", "priority"),)
+
+
+class IssueComment(Base):
+    __tablename__ = "issue_comments"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_gen_id)
+    issue_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("issues.id", ondelete="CASCADE"), index=True
+    )
+    author: Mapped[str] = mapped_column(String(64), default="api")
+    body: Mapped[str] = mapped_column(Text, default="")
+    meta: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, index=True)
+
+    issue: Mapped[Issue] = relationship(back_populates="comments")
+
+
+class PullRequest(Base):
+    __tablename__ = "pull_requests"
+
+    # Status machine:
+    # open ──▶ changes_requested ──(new review)──▶ open ──▶ approved ──▶ merged
+    #   └────────────────────────────────────────────▶ approved
+    # open/changes_requested/approved ──▶ closed (reopen allowed if not merged)
+    STATUS_OPEN = "open"
+    STATUS_CHANGES_REQUESTED = "changes_requested"
+    STATUS_APPROVED = "approved"
+    STATUS_MERGED = "merged"
+    STATUS_CLOSED = "closed"
+    REVIEWABLE_STATUSES = {STATUS_OPEN, STATUS_CHANGES_REQUESTED, STATUS_APPROVED}
+    ALL_STATUSES = {STATUS_OPEN, STATUS_CHANGES_REQUESTED, STATUS_APPROVED,
+                    STATUS_MERGED, STATUS_CLOSED}
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_gen_id)
+    number: Mapped[int] = mapped_column(Integer, unique=True, index=True)
+    title: Mapped[str] = mapped_column(String(256))
+    description: Mapped[str] = mapped_column(Text, default="")
+    source_branch: Mapped[str] = mapped_column(String(256))
+    target_branch: Mapped[str] = mapped_column(String(256), default="main")
+    author: Mapped[str] = mapped_column(String(64), default="api")
+    status: Mapped[str] = mapped_column(String(32), default=STATUS_OPEN, index=True)
+    files_changed: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    related_issue_ids: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    task_id: Mapped[str | None] = mapped_column(
+        String(32), ForeignKey("tasks.id", ondelete="SET NULL"), nullable=True
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=_utcnow, onupdate=_utcnow
+    )
+    merged_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    merged_by: Mapped[str | None] = mapped_column(String(64), nullable=True)
+
+    reviews: Mapped[list[PullRequestReview]] = relationship(
+        back_populates="pull_request", cascade="all, delete-orphan",
+        lazy="selectin", order_by="PullRequestReview.created_at",
+    )
+
+
+class PullRequestReview(Base):
+    __tablename__ = "pr_reviews"
+
+    VERDICT_APPROVE = "approve"
+    VERDICT_REQUEST_CHANGES = "request_changes"
+    VERDICT_COMMENT = "comment"
+    ALL_VERDICTS = {VERDICT_APPROVE, VERDICT_REQUEST_CHANGES, VERDICT_COMMENT}
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_gen_id)
+    pull_request_id: Mapped[str] = mapped_column(
+        String(32), ForeignKey("pull_requests.id", ondelete="CASCADE"), index=True
+    )
+    reviewer: Mapped[str] = mapped_column(String(64), index=True)
+    verdict: Mapped[str] = mapped_column(String(32), default=VERDICT_COMMENT)
+    score: Mapped[float] = mapped_column(Float, default=0.0)
+    summary: Mapped[str] = mapped_column(Text, default="")
+    comments: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, index=True)
+
+    pull_request: Mapped[PullRequest] = relationship(back_populates="reviews")

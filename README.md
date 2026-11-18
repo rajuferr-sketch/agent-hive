@@ -28,6 +28,9 @@ Install once: `pip install -r requirements.txt`. No API key required (determinis
 - **Persistent message bus** — agents exchange `info / request / response / assistance / problem / proposal / challenge / review` messages; every message is stored in the database.
 - **Provider fallback chains per agent** — `openai_compatible → ollama → mock` by default, with a circuit breaker (skip after 2 consecutive failures for 60 s). Works with OpenAI, vLLM, LM Studio, LiteLLM, Groq, DeepSeek, Ollama, or fully offline via the deterministic mock (see [docs/providers.md](docs/providers.md)).
 - **Quality gate** — completeness, requirements coverage, static AST check of embedded Python, secret scanning and leftover-marker detection; score ≥ 0.7 required, up to 2 revision rounds.
+- **Issue tracker** — GitHub-style issues (`open → in_progress → blocked → resolved → closed`) with labels, comments and capability-based triage: the hive assigns each issue to the best-matched agent.
+- **Pull requests** — PR lifecycle (`open → changes_requested → approved → merged/closed`) with per-agent review verdicts, GitHub-style review aggregation and a **guarded merge** (only approved PRs land). The hive `reviewer` agent can review PRs end-to-end.
+- **Agent management** — persistent DB-backed registry, hot enable/disable without restart, runtime registration of agent #21+ (spec persisted to `configs/agents/`), provider-chain health probes and per-agent workload stats.
 - **REST + WebSocket API** — FastAPI with live event streaming (see [docs/api.md](docs/api.md)).
 - **Security by design** — secrets only via environment variables, permission-controlled tools, sandboxed file access, non-root Docker image.
 
@@ -182,6 +185,27 @@ curl http://127.0.0.1:8000/api/agents
 curl "http://127.0.0.1:8000/api/tasks?status=completed"
 curl "http://127.0.0.1:8000/api/memory/shared?q=mission"
 curl "http://127.0.0.1:8000/api/messages?agent=programmer"
+
+# Issue tracker (triage + agent assignment)
+curl -X POST http://127.0.0.1:8000/api/issues \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Login 500 on prod", "labels": ["bug", "api"], "priority": 2}'
+curl -X POST http://127.0.0.1:8000/api/issues/1/assign \
+  -H "Content-Type: application/json" -d '{}'
+
+# Pull requests (review + guarded merge)
+curl -X POST http://127.0.0.1:8000/api/pulls \
+  -H "Content-Type: application/json" \
+  -d '{"title": "Fix sqli", "source_branch": "fix/sqli"}'
+curl -X POST http://127.0.0.1:8000/api/pulls/1/review \
+  -H "Content-Type: application/json" -d '{"reviewer": "agent"}'
+curl -X POST http://127.0.0.1:8000/api/pulls/1/merge \
+  -H "Content-Type: application/json" -d '{"merged_by": "master"}'
+
+# Agent management (register agent #21+, health, stats)
+curl http://127.0.0.1:8000/api/agents/registry
+curl -X POST http://127.0.0.1:8000/api/agents/programmer/health
+curl http://127.0.0.1:8000/api/agents/programmer/stats
 
 # Live events
 # WebSocket: ws://127.0.0.1:8000/ws
