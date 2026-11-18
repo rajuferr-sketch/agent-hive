@@ -9,21 +9,20 @@ description = "AgentHive — Advanced multi-agent orchestration system: 1 Master
 readme = "README.md"
 license = { text = "MIT" }
 authors = [{ name = "AgentHive Contributors" }]
-requires-python = ">=3.11"
+requires-python = ">=3.10"
 keywords = ["multi-agent", "ai-agents", "orchestration", "llm", "ollama", "openai"]
 classifiers = [
-    "Development Status :: 5 - Production/Stable",
+    "Development Status :: 4 - Beta",
     "Intended Audience :: Developers",
     "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Topic :: Software Development :: Libraries :: Application Frameworks",
 ]
 dependencies = [
     "fastapi>=0.110",
-    "uvicorn[standard]>=0.29",
     "sqlalchemy[asyncio]>=2.0.29",
-    "asyncpg>=0.29",
     "aiosqlite>=0.20",
     "pydantic>=2.6",
     "pydantic-settings>=2.2",
@@ -35,6 +34,8 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+server = ["uvicorn[standard]>=0.29"]
+postgres = ["asyncpg>=0.29"]
 dev = [
     "pytest>=8.1",
     "pytest-asyncio>=0.23",
@@ -46,8 +47,8 @@ dev = [
 agent-hive = "agent_hive.cli:main"
 
 [project.urls]
-Homepage = "https://github.com/agent-hive/agent-hive"
-Documentation = "https://github.com/agent-hive/agent-hive/tree/main/docs"
+Homepage = "https://github.com/rajuferr-sketch/agent-hive"
+Documentation = "https://github.com/rajuferr-sketch/agent-hive/tree/main/docs"
 
 [tool.setuptools.packages.find]
 where = ["src"]
@@ -62,7 +63,7 @@ testpaths = ["tests"]
 
 [tool.ruff]
 line-length = 100
-target-version = "py311"
+target-version = "py310"
 
 [tool.ruff.lint]
 select = ["E", "F", "I", "W", "UP", "B"]

@@ -22,6 +22,7 @@ from agent_hive.config.settings import get_settings
 from agent_hive.core.errors import ConfigError, ProviderError
 from agent_hive.core.logging import get_logger
 from agent_hive.providers.base import CompletionResult, LLMProvider
+from agent_hive.providers.host import HostProvider
 from agent_hive.providers.mock import MockProvider
 from agent_hive.providers.ollama import OllamaProvider
 from agent_hive.providers.openai_compat import OpenAICompatProvider
@@ -31,6 +32,7 @@ log = get_logger("agent_hive.providers")
 _REGISTRY: dict[str, type[LLMProvider]] = {
     "openai_compatible": OpenAICompatProvider,
     "ollama": OllamaProvider,
+    "host": HostProvider,
     "mock": MockProvider,
 }
 
@@ -64,6 +66,8 @@ def resolve_provider(cfg: ProviderConfig) -> LLMProvider:
 
 def build_provider_chain(configs: list[ProviderConfig]) -> ProviderChain:
     """Build an ordered fallback chain from agent YAML ``providers``."""
+    if os.getenv("AGENT_HIVE_HOST_MODE", "").lower() in ("1", "true", "yes"):
+        return ProviderChain([HostProvider()])
     chain = ProviderChain([resolve_provider(c) for c in configs])
     if not chain.providers:
         chain.providers.append(MockProvider())
@@ -118,8 +122,8 @@ class ProviderChain(LLMProvider):
         last_error: Exception | None = None
         for provider in self.providers:
             if not provider.configured() or self._tripped(provider):
-                log.info("Provider '%s' skipped (not configured / circuit open)",
-                         provider.name)
+                log.debug("Provider '%s' skipped (not configured / circuit open)",
+                          provider.name)
                 continue
             try:
                 result = await provider.complete(messages, **params)
@@ -128,10 +132,10 @@ class ProviderChain(LLMProvider):
             except Exception as exc:  # noqa: BLE001 — try next fallback
                 last_error = exc
                 self._record_failure(provider)
-                log.warning("Provider '%s' failed, trying next fallback: %s",
-                            provider.name, exc)
+                log.debug("Provider '%s' failed, trying next fallback: %s",
+                          provider.name, exc)
         if get_settings().allow_mock:
-            log.warning("All providers failed — falling back to MOCK provider")
+            log.debug("All providers failed — falling back to MOCK provider")
             result = await MockProvider().complete(messages, **params)
             result.provider = "mock(fallback)"
             return result

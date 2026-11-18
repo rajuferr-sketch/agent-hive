@@ -51,8 +51,21 @@ async def word_count(text: str) -> dict[str, Any]:
 
 
 async def regex_extract(pattern: str, text: str, flags: str = "") -> dict[str, Any]:
+    import concurrent.futures
+
     f = re.IGNORECASE if "i" in flags else 0
-    matches = re.findall(pattern, text or "", f)
+
+    def _run() -> list[Any]:
+        return re.findall(pattern, text or "", f)
+
+    try:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=1) as pool:
+            future = pool.submit(_run)
+            matches = future.result(timeout=1.0)
+    except concurrent.futures.TimeoutError:
+        return {"matches": [], "count": 0, "error": "regex timed out after 1s"}
+    except re.error as exc:
+        return {"matches": [], "count": 0, "error": str(exc)}
     return {"matches": [m if isinstance(m, str) else list(m) for m in matches[:100]],
             "count": len(matches)}
 
@@ -118,15 +131,49 @@ async def file_read(path: str) -> dict[str, Any]:
     return {"path": path, "size": target.stat().st_size, "content": content[:100_000]}
 
 
+async def http_get(url: str, timeout: float = 10.0) -> dict[str, Any]:
+    """Fetch a URL (requires ENABLE_HTTP_TOOLS=true)."""
+    import httpx
+
+    async with httpx.AsyncClient(timeout=timeout) as client:
+        resp = await client.get(url)
+        resp.raise_for_status()
+        return {"url": url, "status": resp.status_code,
+                "content": resp.text[:50_000]}
+
+
 async def file_write(path: str, content: str) -> dict[str, Any]:
     """Write a file inside the sandboxed workspace directory."""
+    content = content or ""
+    if len(content.encode("utf-8")) > 1_000_000:
+        raise AgentError("File content exceeds 1 MB limit")
     workspace = Path(get_settings().workspace_dir).resolve()
     target = (workspace / path).resolve()
     if not target.is_relative_to(workspace):
         raise AgentError("Path escapes the workspace sandbox")
+    existing = list(workspace.rglob("*")) if workspace.exists() else []
+    files = [p for p in existing if p.is_file()]
+    if target not in files and len(files) >= 1000:
+        raise AgentError("Workspace file count limit (1000) reached")
     target.parent.mkdir(parents=True, exist_ok=True)
-    target.write_text(content or "", encoding="utf-8")
-    return {"path": path, "size": len(content or ""), "written": True}
+    target.write_text(content, encoding="utf-8")
+    return {"path": path, "size": len(content), "written": True}
+    """Write a file inside the sandboxed workspace directory."""
+    content = content or ""
+    if len(content.encode("utf-8")) > 1_000_000:
+        raise AgentError("File content exceeds 1 MB limit")
+    workspace = Path(get_settings().workspace_dir).resolve()
+    target = (workspace / path).resolve()
+    if not target.is_relative_to(workspace):
+        raise AgentError("Path escapes the workspace sandbox")
+    # Limit total number of files in the workspace.
+    existing = list(workspace.rglob("*")) if workspace.exists() else []
+    files = [p for p in existing if p.is_file()]
+    if target not in files and len(files) >= 1000:
+        raise AgentError("Workspace file count limit (1000) reached")
+    target.parent.mkdir(parents=True, exist_ok=True)
+    target.write_text(content, encoding="utf-8")
+    return {"path": path, "size": len(content), "written": True}
 
 
 def register_builtins() -> None:
@@ -139,6 +186,7 @@ def register_builtins() -> None:
     REGISTRY.register("secret_scan", "Scan text for hard-coded secrets", "code", secret_scan)
     REGISTRY.register("file_read", "Read a file from the sandboxed workspace", "file", file_read)
     REGISTRY.register("file_write", "Write a file to the sandboxed workspace", "file", file_write)
+    REGISTRY.register("http_get", "Fetch a URL (requires ENABLE_HTTP_TOOLS)", "http", http_get)
 
 
 register_builtins()

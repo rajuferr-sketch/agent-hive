@@ -1,0 +1,12 @@
+# Using AgentHive inside an AI chat
+
+1. Download/clone the repository.
+2. Run `python run.py --chat "your request"`.
+3. AgentHive writes one JSON file per agent call into `./host_requests/`.
+4. Read each request file, produce the answer, and write a JSON file with the same id into `./host_responses/`:
+   ```json
+   {"text": "<the agent's full answer>"}
+   ```
+5. AgentHive polls for responses and completes the mission, printing a Markdown report.
+
+Files are consumed (deleted) after reading. You can answer them in any order.

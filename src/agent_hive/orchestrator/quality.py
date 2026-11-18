@@ -17,6 +17,9 @@ deliver results whose score is below ``qa_required_score``.
 from __future__ import annotations
 
 import re
+import subprocess
+import sys
+import tempfile
 from typing import Any
 
 from agent_hive.config.loader import SystemConfig
@@ -92,6 +95,16 @@ class QualityGate:
                     "check": f"code_block_{i}", "ok": ok,
                     "detail": report.get("error", "syntax OK"),
                 })
+                # Best-effort execution check: run the block in a subprocess
+                # with a hard timeout so a hanging snippet cannot block the gate.
+                if ok:
+                    exec_ok, exec_detail = await _run_code_block(block)
+                    if not exec_ok:
+                        score -= 0.2
+                    findings.append({
+                        "check": f"code_exec_{i}", "ok": exec_ok,
+                        "detail": exec_detail,
+                    })
 
         # 4. secrets ----------------------------------------------------------
         if self.config.qa_secret_scan:
@@ -116,6 +129,15 @@ class QualityGate:
         else:
             findings.append({"check": "markers", "ok": True, "detail": "none"})
 
+        # Mock results are deterministic placeholders: never let them pass as
+        # if they were real deliverables, and surface an explicit warning.
+        if "[MOCK]" in text:
+            score = min(score, 0.4)
+            findings.append({
+                "check": "mock_result", "ok": False,
+                "detail": "deliverable was produced by the mock provider — not a real result",
+            })
+
         score = max(0.0, min(1.0, score))
         passed = score >= self.config.qa_required_score
 
@@ -136,3 +158,34 @@ class QualityGate:
         await self.events.publish("quality.verified", verifier,
                                   title=title, score=score, passed=passed)
         return {"passed": passed, "score": score, "findings": findings}
+
+
+async def _run_code_block(code: str) -> tuple[bool, str]:
+    """Execute a Python code block in a subprocess with a hard timeout."""
+    import asyncio as _asyncio
+
+    def _run() -> tuple[bool, str]:
+        with tempfile.NamedTemporaryFile("w", suffix=".py", delete=False, encoding="utf-8") as fh:
+            fh.write(code)
+            path = fh.name
+        try:
+            proc = subprocess.run(
+                [sys.executable, path],
+                capture_output=True, text=True, timeout=5,
+            )
+            if proc.returncode == 0:
+                return True, "execution OK"
+            detail = (proc.stderr or proc.stdout or "").strip()[:200]
+            return False, f"exit {proc.returncode}: {detail}"
+        except subprocess.TimeoutExpired:
+            return False, "execution timed out after 5s"
+        except Exception as exc:  # noqa: BLE001
+            return False, f"execution error: {exc}"
+        finally:
+            try:
+                import os as _os
+                _os.unlink(path)
+            except OSError:
+                pass
+
+    return await _asyncio.to_thread(_run)

@@ -14,8 +14,9 @@ system restart (``recover()`` resets orphaned ``running`` tasks).
 
 from __future__ import annotations
 
-from datetime import UTC
-from typing import Any, List
+import builtins
+from datetime import timezone
+from typing import Any
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -106,7 +107,7 @@ class TaskManager:
         mission_id: str | None = None,
         agent_name: str | None = None,
         limit: int = 100,
-    ) -> List[Task]:
+    ) -> builtins.list[Task]:
         factory = get_session_factory()
         async with factory() as sess:
             stmt = select(Task)
@@ -149,7 +150,7 @@ class TaskManager:
         await self.set_status(task_id, Task.STATUS_ASSIGNED, agent_name=agent_name)
 
     async def mark_running(self, task_id: str) -> None:
-        from datetime import datetime
+        from datetime import datetime, timezone
 
         factory = get_session_factory()
         async with factory() as sess:
@@ -158,7 +159,7 @@ class TaskManager:
                 .where(Task.id == task_id)
                 .values(
                     status=Task.STATUS_RUNNING,
-                    started_at=datetime.now(UTC),
+                    started_at=datetime.now(timezone.utc),
                 )
             )
             task = (await sess.execute(
@@ -227,7 +228,7 @@ class TaskManager:
         return None
 
     # ----------------------------------------------------------- scheduling
-    async def ready_tasks(self, limit: int = 50) -> List[Task]:
+    async def ready_tasks(self, limit: int = 50) -> builtins.list[Task]:
         """Queued tasks whose dependencies are all completed."""
         factory = get_session_factory()
         async with factory() as sess:
@@ -237,7 +238,7 @@ class TaskManager:
                 .order_by(Task.priority, Task.created_at)
                 .limit(limit)
             )).scalars().all()
-            ready: List[Task] = []
+            ready: list[Task] = []
             for task in tasks:
                 if not task.depends_on:
                     ready.append(task)
@@ -274,7 +275,7 @@ class TaskManager:
 
 def func_now():
     from datetime import datetime
-    return datetime.now(UTC)
+    return datetime.now(timezone.utc)
 
 
 __all__ = ["TaskManager", "func_now"]

@@ -10,7 +10,7 @@ challenge, review.
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import select, update
@@ -120,7 +120,7 @@ class MessageBus:
             res = await sess.execute(
                 update(Message)
                 .where(Message.id.in_(message_ids), Message.read_at.is_(None))
-                .values(read_at=datetime.now(UTC))
+                .values(read_at=datetime.now(timezone.utc))
             )
             await sess.commit()
             return getattr(res, "rowcount", 0) or 0

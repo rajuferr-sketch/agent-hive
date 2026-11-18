@@ -79,9 +79,11 @@ async def _check_db() -> bool:
     _print_section("Database connectivity")
     try:
         engine = get_engine()
-        async with asyncio.timeout(PROBE_TIMEOUT):
+        async def _probe_db() -> None:
             async with engine.connect() as conn:
                 await conn.execute(text("SELECT 1"))
+
+        await asyncio.wait_for(_probe_db(), timeout=PROBE_TIMEOUT)
         print(f"[{ok}] {_mask_url(str(engine.url))} — SELECT 1 succeeded")
         return True
     except Exception as exc:  # noqa: BLE001 — diagnostics must never crash

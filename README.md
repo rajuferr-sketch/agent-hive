@@ -1,13 +1,21 @@
 # AgentHive
 
-[![CI](https://github.com/agent-hive/agent-hive/actions/workflows/ci.yml/badge.svg)](https://github.com/agent-hive/agent-hive/actions)
-[![Python 3.11+](https://img.shields.io/badge/python-3.11%2B-blue)](https://www.python.org/downloads/)
+[![CI](https://github.com/rajuferr-sketch/agent-hive/actions/workflows/ci.yml/badge.svg)](https://github.com/rajuferr-sketch/agent-hive/actions)
+[![Python 3.10+](https://img.shields.io/badge/python-3.10%2B-blue)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/license-MIT-green)](LICENSE)
 [![Code style: ruff](https://img.shields.io/badge/code%20style-ruff-261230)](https://github.com/astral-sh/ruff)
 
 **AgentHive** is an advanced multi-agent orchestration system: **1 Master Agent + 20 specialized AI agents** that analyze your request, decompose it into tasks, collaborate through shared memory and a message bus, and deliver a single quality-gated result.
 
 > One request in → one verified deliverable out. The hive decides *how*.
+
+## Try in 30 seconds
+
+```bash
+python run.py "Write a short haiku about automated testing in Python"
+```
+
+No install step, no API key required (deterministic mock provider). Output is Markdown.
 
 ---
 

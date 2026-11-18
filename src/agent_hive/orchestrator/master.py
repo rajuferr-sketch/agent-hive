@@ -212,6 +212,14 @@ class MasterAgent:
         for capability in DOMAIN_CAPABILITIES.get(domain, [domain]):
             holders = self.runtime.agents_with_capability(capability)
             if holders:
+                # Prefer an agent whose name/role matches the capability
+                # exactly (e.g. "integration" -> integration agent), so a
+                # generically-named agent (such as "api") never hijacks a
+                # specialised role just because it sorts first.
+                for holder in holders:
+                    agent = self.runtime.agents.get(holder)
+                    if holder == capability or getattr(agent, "ROLE", None) == capability:
+                        return holder
                 return holders[0]
         return self.runtime.best_agent_for(capabilities_hint=[])
 

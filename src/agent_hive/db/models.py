@@ -13,7 +13,7 @@ verifications   quality-control verdicts for tasks
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import (
@@ -38,7 +38,7 @@ def _gen_id() -> str:
 
 
 def _utcnow() -> datetime:
-    return datetime.now(UTC)
+    return datetime.now(timezone.utc)
 
 
 class Base(DeclarativeBase):

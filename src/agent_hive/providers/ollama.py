@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import socket
+import time
 from typing import Any
 
 import httpx
@@ -12,6 +14,9 @@ from agent_hive.providers.base import CompletionResult, LLMProvider
 from agent_hive.providers.openai_compat import shared_ssl_context
 
 DEFAULT_OLLAMA_URL = "http://localhost:11434"
+
+_OLLAMA_AVAILABLE_CACHE: dict[str, tuple[float, bool]] = {}
+_CACHE_TTL = 30.0
 
 
 class OllamaProvider(LLMProvider):
@@ -69,6 +74,26 @@ class OllamaProvider(LLMProvider):
             return resp.status_code < 500
         except httpx.HTTPError:
             return False
+
+    def configured(self) -> bool:
+        # Explicitly configured endpoint: always considered usable.
+        if self.base_url != DEFAULT_OLLAMA_URL or os.getenv("OLLAMA_BASE_URL"):
+            return True
+        # Default localhost: probe once (cached) so an absent Ollama does
+        # not generate repeated connection-refused noise on every agent call.
+        now = time.monotonic()
+        cached = _OLLAMA_AVAILABLE_CACHE.get(self.base_url)
+        if cached is not None and (now - cached[0]) < _CACHE_TTL:
+            return cached[1]
+        try:
+            host = "localhost"
+            port = 11434
+            with socket.create_connection((host, port), timeout=0.3):
+                available = True
+        except OSError:
+            available = False
+        _OLLAMA_AVAILABLE_CACHE[self.base_url] = (now, available)
+        return available
 
     async def aclose(self) -> None:
         await self._client.aclose()

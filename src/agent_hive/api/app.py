@@ -28,6 +28,7 @@ from contextlib import asynccontextmanager
 from typing import Any
 
 from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
 from agent_hive.api.schemas import (
@@ -67,6 +68,24 @@ def create_app() -> FastAPI:
         version="1.0.0",
         lifespan=lifespan,
     )
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=["*"],
+        allow_credentials=True,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    @app.middleware("http")
+    async def api_key_guard(request, call_next):
+        import os
+
+        key = os.getenv("AGENT_HIVE_API_KEY")
+        if key and request.url.path.startswith("/api"):
+            if request.headers.get("x-api-key") != key:
+                from fastapi.responses import JSONResponse
+                return JSONResponse(status_code=401, content={"detail": "invalid or missing API key"})
+        return await call_next(request)
 
     # ------------------------------------------------------------- system
     @app.get("/health")

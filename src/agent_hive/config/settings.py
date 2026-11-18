@@ -27,7 +27,7 @@ class Settings(BaseSettings):
 
     # Behaviour
     allow_mock: bool = True
-    log_level: str = "INFO"
+    log_level: str = "WARNING"
     config_dir: Path = Path("./configs")
     workspace_dir: Path = Path("./workspace")
     data_dir: Path = Path("./data")
@@ -48,9 +48,27 @@ class Settings(BaseSettings):
     enable_http_tools: bool = False
 
     def ensure_dirs(self) -> None:
-        """Create runtime directories if missing."""
-        for p in (self.data_dir, self.workspace_dir):
-            Path(p).mkdir(parents=True, exist_ok=True)
+        """Create runtime directories if missing.
+
+        Falls back to a writable temporary directory when the current working
+        directory is read-only, so the system still boots in sandboxes.
+        """
+        import tempfile
+
+        for attr in ("data_dir", "workspace_dir"):
+            p = Path(getattr(self, attr))
+            try:
+                p.mkdir(parents=True, exist_ok=True)
+                # probe writability
+                probe = p / ".write_probe"
+                probe.write_text("ok", encoding="utf-8")
+                probe.unlink(missing_ok=True)
+            except OSError:
+                fallback = Path(tempfile.gettempdir()) / "agent-hive" / attr.split("_")[0]
+                fallback.mkdir(parents=True, exist_ok=True)
+                setattr(self, attr, fallback)
+                if attr == "data_dir":
+                    self.database_url = f"sqlite+aiosqlite:///{fallback / 'agent_hive.db'}"
 
 
 @lru_cache

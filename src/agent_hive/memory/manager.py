@@ -20,7 +20,7 @@ Anti-duplication & conflict strategy
 from __future__ import annotations
 
 import json
-from datetime import UTC, datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from typing import Any
 
 from sqlalchemy import delete, select
@@ -172,7 +172,7 @@ class MemoryManager:
     ) -> dict[str, int]:
         """Remove obsolete memory: version caps + retention window."""
         settings = get_settings()
-        cutoff = datetime.now(UTC) - timedelta(
+        cutoff = datetime.now(timezone.utc) - timedelta(
             days=settings.memory_retention_days
         )
 

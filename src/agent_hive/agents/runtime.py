@@ -8,7 +8,7 @@ dependency graph acyclic: agents never import orchestration code.
 from __future__ import annotations
 
 import asyncio
-from datetime import UTC, datetime
+from datetime import datetime, timezone
 from typing import Any
 
 from sqlalchemy import select
@@ -138,7 +138,7 @@ class AgentRuntime:
                         capabilities=sorted(set(agent.CAPABILITIES) | set(cfg.capabilities)),
                         provider_chain=agent.provider.descriptions,
                         params=cfg.params, memory_enabled=cfg.memory.individual,
-                        last_heartbeat=datetime.now(UTC),
+                        last_heartbeat=datetime.now(timezone.utc),
                     ))
                 else:
                     existing.title = agent.title
@@ -148,7 +148,7 @@ class AgentRuntime:
                         set(agent.CAPABILITIES) | set(cfg.capabilities)
                     )
                     existing.provider_chain = agent.provider.descriptions
-                    existing.last_heartbeat = datetime.now(UTC)
+                    existing.last_heartbeat = datetime.now(timezone.utc)
             await sess.commit()
 
     async def _heartbeat_loop(self) -> None:
