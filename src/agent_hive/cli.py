@@ -14,6 +14,7 @@ from __future__ import annotations
 
 import asyncio
 import json
+from typing import Any
 
 import typer
 from rich.console import Console
@@ -30,8 +31,8 @@ app = typer.Typer(
 console = Console()
 
 
-def _run(coro) -> None:
-    asyncio.run(coro)
+def _run(coro) -> Any:
+    return asyncio.run(coro)
 
 
 @app.command()

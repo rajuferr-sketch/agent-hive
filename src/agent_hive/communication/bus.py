@@ -123,7 +123,7 @@ class MessageBus:
                 .values(read_at=datetime.now(UTC))
             )
             await sess.commit()
-            return res.rowcount or 0
+            return getattr(res, "rowcount", 0) or 0
 
     async def history(
         self,

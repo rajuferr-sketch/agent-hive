@@ -134,7 +134,7 @@ async def _probe_provider(ptype: str, pcfg: object) -> tuple[str, bool, str]:
     try:
         await asyncio.wait_for(provider.health_check(), timeout=PROBE_TIMEOUT)
         return ptype, True, provider.name
-    except asyncio.TimeoutError:
+    except TimeoutError:
         return ptype, False, f"health_check timed out after {PROBE_TIMEOUT:.0f}s"
     except Exception as exc:  # noqa: BLE001
         return ptype, False, str(exc)

@@ -14,7 +14,7 @@ _FORMAT = "%(asctime)s | %(levelname)-8s | %(name)s | %(message)s"
 def setup_logging(level: str | None = None, log_file: str | None = None) -> None:
     """Configure root logging once. Idempotent, safe to call repeatedly."""
     global _CONFIGURED
-    level_name = (level or os.getenv("LOG_LEVEL", "INFO")).upper()
+    level_name = (level or os.getenv("LOG_LEVEL") or "INFO").upper()
     handlers: list[logging.Handler] = [logging.StreamHandler(sys.stderr)]
     if log_file:
         os.makedirs(os.path.dirname(log_file) or ".", exist_ok=True)

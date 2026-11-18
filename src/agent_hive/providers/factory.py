@@ -75,13 +75,14 @@ def register_provider_type(type_name: str, provider_cls: type[LLMProvider]) -> N
     _REGISTRY[type_name] = provider_cls
 
 
-class ProviderChain:
+class ProviderChain(LLMProvider):
     """Ordered list of providers with automatic fallback + circuit breaker.
 
     A provider that fails twice in a row is skipped for a cooldown window
     (default 60 s), so a down backend does not slow every agent call.
     """
 
+    name = "provider_chain"
     COOLDOWN_S = 60.0
     TRIP_THRESHOLD = 2
 

@@ -26,7 +26,7 @@ class OllamaProvider(LLMProvider):
     ) -> None:
         self.model = model
         self.base_url = (
-            base_url or os.getenv("OLLAMA_BASE_URL", DEFAULT_OLLAMA_URL)
+            base_url or os.getenv("OLLAMA_BASE_URL") or DEFAULT_OLLAMA_URL
         ).rstrip("/")
         self.params = params or {}
         self._client = httpx.AsyncClient(timeout=timeout, verify=shared_ssl_context())

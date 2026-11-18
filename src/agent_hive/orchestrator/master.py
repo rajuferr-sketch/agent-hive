@@ -201,7 +201,10 @@ class MasterAgent:
                 pick = self._agent_for_capability(role)
                 if pick and pick not in agents:
                     agents.append(pick)
-            return agents[: max(self.config.adaptive_min_agents, len(agents))]
+            return agents[: min(
+                self.config.adaptive_max_agents,
+                max(self.config.adaptive_min_agents, len(agents)),
+            )]
         return all_agents  # collective: everyone participates
 
     def _agent_for_capability(self, domain: str) -> str | None:

@@ -201,9 +201,9 @@ class MemoryManager:
                 res = await sess.execute(
                     delete(Memory).where(Memory.id.in_(stale_ids))
                 )
-                removed_cap = res.rowcount or 0
+                removed_cap = getattr(res, "rowcount", 0) or 0
             return {
-                "history_expired": removed_hist.rowcount or 0,
+                "history_expired": getattr(removed_hist, "rowcount", 0) or 0,
                 "history_capped": removed_cap,
             }
 

@@ -15,7 +15,7 @@ system restart (``recover()`` resets orphaned ``running`` tasks).
 from __future__ import annotations
 
 from datetime import UTC
-from typing import Any
+from typing import Any, List
 
 from sqlalchemy import func, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -106,7 +106,7 @@ class TaskManager:
         mission_id: str | None = None,
         agent_name: str | None = None,
         limit: int = 100,
-    ) -> list[Task]:
+    ) -> List[Task]:
         factory = get_session_factory()
         async with factory() as sess:
             stmt = select(Task)
@@ -192,7 +192,12 @@ class TaskManager:
                 select(Task).where(Task.id == task_id)
             )).scalar_one()
             task.error = error
-            task.attempts += 1
+            # Attempts are incremented when a task is marked running (see
+            # ``mark_running``). When ``record_failure`` is invoked directly
+            # (e.g. in tests or by callers that skipped ``mark_running``) we
+            # still account for this attempt so retry accounting stays correct.
+            if task.status != Task.STATUS_RUNNING:
+                task.attempts += 1
             if task.attempts <= task.max_retries:
                 task.status = Task.STATUS_QUEUED  # schedule retry
                 task.agent_name = None            # allow re-assignment
@@ -222,7 +227,7 @@ class TaskManager:
         return None
 
     # ----------------------------------------------------------- scheduling
-    async def ready_tasks(self, limit: int = 50) -> list[Task]:
+    async def ready_tasks(self, limit: int = 50) -> List[Task]:
         """Queued tasks whose dependencies are all completed."""
         factory = get_session_factory()
         async with factory() as sess:
@@ -232,7 +237,7 @@ class TaskManager:
                 .order_by(Task.priority, Task.created_at)
                 .limit(limit)
             )).scalars().all()
-            ready: list[Task] = []
+            ready: List[Task] = []
             for task in tasks:
                 if not task.depends_on:
                     ready.append(task)
@@ -260,7 +265,7 @@ class TaskManager:
                 .where(Task.status.in_([Task.STATUS_RUNNING, Task.STATUS_ASSIGNED]))
                 .values(status=Task.STATUS_QUEUED, agent_name=None, error="recovered after restart")
             )
-            count = res.rowcount or 0
+            count = getattr(res, "rowcount", 0) or 0
             await sess.commit()
         if count:
             await self.events.publish("tasks.recovered", "task_manager", count=count)
