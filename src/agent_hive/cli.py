@@ -224,6 +224,20 @@ def demo(name: str = typer.Argument("logistica", help="Demo scenario: logistica 
     _run(_demo())
 
 
+@app.command("repo-import")
+def repo_import_cmd(url: str = typer.Argument(..., help="GitHub repository URL")) -> None:
+    """Import and analyse a GitHub repository."""
+
+    async def _run_import() -> None:
+        from agent_hive.repository.intelligence import analyze_repository, import_github_repo
+
+        info = await import_github_repo(url)
+        report = analyze_repository(info["path"])
+        console.print_json(json.dumps({**info, "analysis": report}, default=str, ensure_ascii=False))
+
+    _run(_run_import())
+
+
 def main() -> None:
     app()
 

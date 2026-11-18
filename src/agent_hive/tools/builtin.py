@@ -131,6 +131,15 @@ async def file_read(path: str) -> dict[str, Any]:
     return {"path": path, "size": target.stat().st_size, "content": content[:100_000]}
 
 
+async def repo_import(url: str) -> dict[str, Any]:
+    """Import and analyse a GitHub repository."""
+    from agent_hive.repository.intelligence import analyze_repository, import_github_repo
+
+    info = await import_github_repo(url)
+    report = analyze_repository(info["path"])
+    return {**info, "analysis": report}
+
+
 async def document_download(url: str) -> dict[str, Any]:
     """Download and parse a document (PDF/DOCX/HTML/TXT/MD)."""
     from agent_hive.ingestion.document import download_document
@@ -223,6 +232,7 @@ def register_builtins() -> None:
     REGISTRY.register("file_write", "Write a file to the sandboxed workspace", "file", file_write)
     REGISTRY.register("http_get", "Fetch a URL (requires ENABLE_HTTP_TOOLS)", "http", http_get)
     REGISTRY.register("document_download", "Download and parse a document", "http", document_download)
+    REGISTRY.register("repo_import", "Import and analyse a GitHub repository", "http", repo_import)
 
 
 register_builtins()
