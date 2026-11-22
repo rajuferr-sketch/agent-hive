@@ -61,7 +61,7 @@ class Scheduler:
                         timeout=task.timeout_s,
                     )
                     await self.tasks.record_result(task.id, result)
-                except TimeoutError:
+                except asyncio.TimeoutError:
                     await self.tasks.record_failure(
                         task.id, f"timeout after {task.timeout_s}s"
                     )
@@ -94,7 +94,7 @@ class Scheduler:
                 await asyncio.wait_for(
                     self._stopping.wait(), timeout=self.poll_interval
                 )
-            except TimeoutError:
+            except asyncio.TimeoutError:
                 pass
         log.info("Scheduler stopped")
 
@@ -107,7 +107,7 @@ class Scheduler:
         if self._loop_task:
             try:
                 await asyncio.wait_for(self._loop_task, timeout=5)
-            except (TimeoutError, asyncio.CancelledError):
+            except (asyncio.TimeoutError, asyncio.CancelledError):
                 self._loop_task.cancel()
         runners = list(self._running.values())
         for fut in runners:
