@@ -10,6 +10,10 @@
 - `AGENTS.md`: documentation index extended with `AI_CONTEXT.md` and the new package docs; repository map updated; bootstrap step 3 points cloud/local AI chats to `AI_CONTEXT.md`.
 - `TASKS.md`: T-001 recorded as completed; T-002 opened for the CI matrix application.
 
+### Fixed
+- **Python 3.10 compatibility in the scheduler:** `asyncio.wait_for` raises `asyncio.TimeoutError`, which coincides with the builtin `TimeoutError` only on Python 3.11+; on 3.10 the three `except TimeoutError` handlers in `src/agent_hive/tasks/scheduler.py` never matched, breaking the scheduler loop/stop paths and failing `tests/test_missions_e2e.py` (2 failed + 2 teardown errors, ~183 s run). The handlers now catch `asyncio.TimeoutError` (no behavior change on 3.11+). Found and verified by a local CI simulation on Python 3.10/3.11/3.12 (T-003 in `TASKS.md`).
+- **Lint job red:** missing trailing newline (W292) in `tests/test_router.py` made `ruff check src tests` fail.
+
 ### Pending
 - CI cross-platform matrix (ubuntu/windows/macos x Python 3.10/3.11/3.12) + `typecheck` (mypy) job: spec ready in `AI_CONTEXT.md` (section 12), to be applied manually to `.github/workflows/ci.yml` (the integration in use lacks the `workflows` permission) — tracked as T-002 in `TASKS.md`.
 
