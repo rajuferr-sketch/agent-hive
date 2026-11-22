@@ -8,7 +8,7 @@ This file is the canonical guide for **any AI assistant, chat or coding agent** 
 
 1. **Read this file completely** before touching any code.
 2. **Read [`TASKS.md`](TASKS.md)** — the official queue of assigned tasks. Take the first open task (highest priority first). If the queue is empty but the user gave you a task in the chat, treat the user's message as the task and append it to `TASKS.md` before starting work.
-3. **Skim [`README.md`](README.md)** for the big picture. Open `docs/*.md` only for the area you are working on (index in section 10).
+3. **Skim [`README.md`](README.md)** for the big picture. If you are a cloud or local AI chat working without a local clone, read [`AI_CONTEXT.md`](AI_CONTEXT.md) — the complete operational package (quick start, offline config, provider configs, universal rules). Open `docs/*.md` only for the area you are working on (index in section 10).
 4. **Set up and verify the environment** (section 3): the system must run end-to-end in mock mode before you change anything. This proves your environment works and gives you a baseline.
 5. **Execute the task** following the conventions (section 7) and guardrails (section 8).
 6. **Close the loop**: run `pytest -q` and `ruff check src tests`, update the task status in `TASKS.md`, and report honestly what you did — including anything you did not finish.
@@ -75,10 +75,13 @@ You can answer requests in any order. Full protocol: [`CHAT.md`](CHAT.md).
 ```text
 agent-hive/
 ├── AGENTS.md               # this file — AI entry point
+├── AI_CONTEXT.md           # complete operational package for AI chats
 ├── TASKS.md                # queue of assigned tasks (READ IT FIRST)
 ├── CHAT.md                 # host-chat provider protocol
 ├── llms.txt                # machine-readable index for LLMs
+├── llms-full.txt           # full text of the AI entry documents
 ├── README.md               # full documentation
+├── SUPPORT.md              # where to get help
 ├── run.py                  # one-command entry point
 ├── configs/
 │   ├── system.yaml         # orchestration thresholds + quality settings (operator-owned)
@@ -137,11 +140,18 @@ A task is complete when **all** of these hold:
 
 | Document | Read it when... |
 |---|---|
+| [`AI_CONTEXT.md`](AI_CONTEXT.md) | You are a cloud or local AI chat: complete operational package — universal quick start, minimal offline config, provider configs (cloud/local), universal rules, per-AI instructions, ready-made prompt |
 | [`docs/architecture.md`](docs/architecture.md) | You need the layered architecture, Master Agent walkthrough, task lifecycle or quality gate details |
 | [`docs/api.md`](docs/api.md) | You work on REST/WebSocket endpoints or clients |
 | [`docs/agents.md`](docs/agents.md) | You touch agent roles, YAML schema or collaboration |
 | [`docs/memory.md`](docs/memory.md) | You work on the 3-tier memory, versioning or pruning |
-| [`docs/providers.md`](docs/providers.md) | You touch provider chains, the circuit breaker, or add a provider |
+| [`docs/providers.md`](docs/providers.md) | You touch provider chains, the circuit breaker, add a provider, or need local/cloud provider configs |
 | [`docs/extending.md`](docs/extending.md) | You add agent #21, tools or providers |
 | [`docs/operations.md`](docs/operations.md) | Install problems, PostgreSQL, diagnostics, recovery |
 | [`docs/examples.md`](docs/examples.md) | You need worked end-to-end missions or Python SDK usage |
+| [`docs/ai-workflow.md`](docs/ai-workflow.md) | You follow the GitHub/PR methodology, permissions and the correct modification order |
+| [`docs/compatibility.md`](docs/compatibility.md) | You are Claude, ChatGPT/Codex or Z.AI/GLM and need per-AI working instructions |
+| [`docs/windows.md`](docs/windows.md) | You work on Windows: venv activation and cross-platform rules |
+| [`docs/troubleshooting.md`](docs/troubleshooting.md) | Something is broken: quick diagnosis of the most common problems |
+| [`docs/deployment.md`](docs/deployment.md) | You deploy with Docker, go to production or need the mandatory security checklist |
+| [`docs/migrations.md`](docs/migrations.md) | You work on the database: PostgreSQL and the Alembic adoption plan |
