@@ -1,0 +1,38 @@
+name: Feature request
+description: Proponi una nuova funzionalità o un miglioramento
+title: "[FEATURE] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Per i compiti da affidare alle chat IA usa il template "AI task / compito per chat IA".
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problema da risolvere
+      description: Quale bisogno o limite del progetto motiva la proposta.
+    validations:
+      required: true
+
+  - type: textarea
+    id: proposal
+    attributes:
+      label: Soluzione proposta
+      description: Cosa dovrebbe fare AgentHive, in concreto.
+    validations:
+      required: true
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternative considerate
+
+  - type: checkboxes
+    id: scope
+    attributes:
+      label: Regole del progetto
+      options:
+        - label: La proposta rispetta le regole in AGENTS.md e AI_CONTEXT.md (no segreti, no modifiche a configurazioni fondamentali, test e documentazione inclusi)
+    validations:
+      required: true
