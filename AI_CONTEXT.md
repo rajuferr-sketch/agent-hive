@@ -185,7 +185,7 @@ agent-hive/
 
 ## 12. Cosa aggiungere al repository
 
-**Stato di applicazione del pacchetto (aggiornato al 2026-11-23):** tutte le parti sono state applicate. Le voci già presenti nella repository restano quelle ufficiali; le altre sono state create; le migliorie CI indicate sono applicate in parte e pianificate in parte.
+**Stato di applicazione del pacchetto (aggiornato al 2026-11-23):** tutte le parti documentali e di community sono state applicate. Le voci già presenti nella repository restano quelle ufficiali; le altre sono state create. La matrice CI è specificata ma non ancora applicata: l'integrazione GitHub in uso non possiede il permesso di modificare i file in `.github/workflows/` — vedi "Migliorie CI" qui sotto e il compito T-002 in [`TASKS.md`](TASKS.md).
 
 ### File essenziali
 
@@ -213,7 +213,80 @@ agent-hive/
 
 ### Migliorie CI
 
-- Applicato in `.github/workflows/ci.yml`: matrice OS (`ubuntu-latest`, `windows-latest`, `macos-latest`) x Python (`3.10`, `3.11`, `3.12`), con job dedicati lint (ruff) e typecheck (mypy) e la suite di test eseguita in matrice.
+- **Matrice OS x Python (specifica pronta, da applicare manualmente):** sostituire `.github/workflows/ci.yml` con la configurazione qui sotto — job `lint` invariato, nuovo job `typecheck` (mypy), job `test` in matrice `ubuntu-latest` / `windows-latest` / `macos-latest` x Python `3.10` / `3.11` / `3.12` con fail-fast disattivato. Applicazione richiede un token con permesso `workflows` oppure l'intervento manuale dell'owner (tracciato come T-002 in [`TASKS.md`](TASKS.md)).
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Ruff check
+        run: ruff check src tests
+
+  typecheck:
+    name: Typecheck (mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements-dev.txt
+          pip install -e ".[dev]"
+
+      - name: MyPy
+        run: mypy src
+
+  test:
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+          pip install -e ".[dev]"
+
+      - name: Run test suite
+        run: pytest -q
+```
+
 - Pianificate per una fase successiva (da applicare singolarmente e verificare in CI prima del merge): CodeQL, coverage, SBOM, secret scan, dependency review, Docker build, smoke test, test packaging, test PostgreSQL.
 
 ## 17. Prompt pronto da dare a qualunque IA
