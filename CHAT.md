@@ -11,3 +11,5 @@
 5. AgentHive polls for responses and completes the mission, printing a Markdown report.
 
 Files are consumed (deleted) after reading. You can answer them in any order.
+
+See also: [`AGENTS.md`](AGENTS.md) — the full bootstrap protocol for AI agents working on this repository — and [`TASKS.md`](TASKS.md) — the current queue of assigned tasks.

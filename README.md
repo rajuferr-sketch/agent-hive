@@ -9,6 +9,10 @@
 
 > One request in → one verified deliverable out. The hive decides *how*.
 
+## AI chats and coding agents — start here
+
+This repository is prepared for AI assistants. **Read [`AGENTS.md`](AGENTS.md) first** — it contains the bootstrap protocol (what to read, in which order), quick start, commands, repository map, conventions and guardrails. Then check **[`TASKS.md`](TASKS.md)** for the currently assigned task. A machine-readable index for LLMs is available at [`llms.txt`](llms.txt). `CLAUDE.md`, `GEMINI.md` and `.github/copilot-instructions.md` all point back to `AGENTS.md`, so every major AI tool auto-loads the same protocol.
+
 ## Try in 30 seconds
 
 ```bash
