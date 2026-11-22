@@ -204,3 +204,161 @@ agent-hive diagnose
 ```
 
 The default chains in `configs/agents/*.yaml` already use the pattern `openai_compatible → ollama → mock`: with an OpenAI key you get the cloud model, without it every agent transparently uses your local Ollama, and fully offline the tagged mock keeps the pipeline running.
+
+---
+
+## Provider locali e cloud: esempi di configurazione (pacchetto IA)
+
+> Sezioni 3, 4 e 15 del pacchetto "Parte completa per IA cloud e locale" (2026-11-23), vedi [`AI_CONTEXT.md`](../AI_CONTEXT.md). I blocchi `providers:` indicativi mostrano l'intenzione di configurazione: per lo schema YAML esatto (campo `type`, `base_url_env`, `api_key_env`, `params`) fare riferimento alle sezioni precedenti di questo documento e a `configs/agents/*.yaml`. I valori delle variabili d'ambiente vanno scritti solo in `.env` (mai committato).
+
+### 3. Provider locali
+
+#### Ollama
+
+```dotenv
+OLLAMA_BASE_URL=http://localhost:11434
+ALLOW_MOCK=false
+```
+
+Esempio:
+
+```bash
+ollama pull llama3.1
+ollama serve
+python run.py "Write and test a Python package parser"
+```
+
+#### LM Studio
+
+Avvia il server locale su una porta compatibile OpenAI:
+
+```dotenv
+OPENAI_API_KEY=lm-studio
+OPENAI_BASE_URL=http://127.0.0.1:1234/v1
+ALLOW_MOCK=false
+```
+
+#### vLLM
+
+```dotenv
+OPENAI_API_KEY=not-needed
+OPENAI_BASE_URL=http://127.0.0.1:8001/v1
+ALLOW_MOCK=false
+```
+
+#### LiteLLM
+
+```dotenv
+OPENAI_API_KEY=your-litellm-key
+OPENAI_BASE_URL=http://127.0.0.1:4000/v1
+ALLOW_MOCK=false
+```
+
+### 4. Provider cloud
+
+#### OpenAI
+
+```dotenv
+OPENAI_API_KEY=sk-...
+OPENAI_BASE_URL=https://api.openai.com/v1
+ALLOW_MOCK=false
+```
+
+#### Z.AI / GLM compatibile OpenAI
+
+```dotenv
+OPENAI_API_KEY=your-zai-key
+OPENAI_BASE_URL=https://api.z.ai/api/paas/v4
+ALLOW_MOCK=false
+```
+
+Verifica che il provider GLM usato esponga endpoint OpenAI-compatible per chat completions, tool calling e model list.
+
+#### Azure OpenAI
+
+```dotenv
+OPENAI_API_KEY=your-azure-key
+OPENAI_BASE_URL=https://your-resource.openai.azure.com/openai/deployments/your-deployment
+ALLOW_MOCK=false
+```
+
+Modello YAML:
+
+```yaml
+providers:
+  - name: openai_compatible
+    model: glm-5
+    base_url_env: OPENAI_BASE_URL
+    api_key_env: OPENAI_API_KEY
+```
+
+#### Anthropic Claude
+
+Per una integrazione nativa serve aggiungere un provider `anthropic` che usi Messages API invece del solo formato OpenAI. È consigliabile mantenere il `tool_use` nativo.
+
+Variabili:
+
+```dotenv
+ANTHROPIC_API_KEY=your-anthropic-key
+ALLOW_MOCK=false
+```
+
+Provider futuro:
+
+```yaml
+providers:
+  - name: anthropic
+    model: claude-sonnet-4
+    api_key_env: ANTHROPIC_API_KEY
+```
+
+#### Google Gemini
+
+Variabili:
+
+```dotenv
+GOOGLE_API_KEY=your-google-key
+ALLOW_MOCK=false
+```
+
+Provider futuro:
+
+```yaml
+providers:
+  - name: google
+    model: gemini-pro
+    api_key_env: GOOGLE_API_KEY
+```
+
+### 15. Aggiunta provider completo
+
+Componente minimo:
+
+```python
+class Provider(Protocol):
+    async def complete(
+        self,
+        messages: list[dict],
+        *,
+        tools: list[dict] | None = None,
+    ) -> ProviderResponse:
+        ...
+```
+
+Funzioni:
+
+- complete;
+- streaming;
+- tool call parsing;
+- token usage;
+- timeout;
+- retry;
+- circuit breaker;
+- health check;
+- error normalization;
+- mock fallback;
+- secrets da environment;
+- output non fidato;
+- logging redatto.
+
+> Il contratto reale dell'interfaccia in questa codebase e `LLMProvider` (`providers/base.py`): `complete(messages, **params) -> CompletionResult`, con override opzionali `health_check()`, `configured()` e `aclose()` — vedi la sezione "Adding a custom provider type" qui sopra. La registrazione avviene con `register_provider_type()`.
