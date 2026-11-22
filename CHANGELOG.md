@@ -1,5 +1,18 @@
 # Changelog
 
+## [Unreleased] - 2026-11-23
+### Added
+- **AI documentation package** ("Parte completa per IA cloud e locale"): `AI_CONTEXT.md` (universal quick start, minimal offline configuration, CLI commands, universal AI rules, preserved structure, package application status, ready-made AI prompt, target end state, ready-to-apply CI spec), `docs/providers.md` extended with local providers (Ollama, LM Studio, vLLM, LiteLLM), cloud providers (OpenAI, Z.AI/GLM, Azure OpenAI, Anthropic, Google Gemini) and the full provider contract, `docs/deployment.md` (Docker workflow + mandatory security checklist), `docs/migrations.md` (PostgreSQL/Alembic plan), `docs/compatibility.md` (per-AI instructions for Claude, ChatGPT/Codex, Z.AI/GLM), `docs/windows.md`, `docs/troubleshooting.md`, `docs/ai-workflow.md` (GitHub methodology, correct modification order).
+- Machine-readable entry points for LLMs: `llms-full.txt` (full text of the AI entry documents) and extended `llms.txt` index.
+- Community files: `SUPPORT.md`, `.github/CODEOWNERS`, `.github/CODE_OF_CONDUCT.md`, `.github/PULL_REQUEST_TEMPLATE.md`, issue forms `bug_report.yml` and `feature_request.yml`.
+
+### Changed
+- `AGENTS.md`: documentation index extended with `AI_CONTEXT.md` and the new package docs; repository map updated; bootstrap step 3 points cloud/local AI chats to `AI_CONTEXT.md`.
+- `TASKS.md`: T-001 recorded as completed; T-002 opened for the CI matrix application.
+
+### Pending
+- CI cross-platform matrix (ubuntu/windows/macos x Python 3.10/3.11/3.12) + `typecheck` (mypy) job: spec ready in `AI_CONTEXT.md` (section 12), to be applied manually to `.github/workflows/ci.yml` (the integration in use lacks the `workflows` permission) — tracked as T-002 in `TASKS.md`.
+
 ## [1.1.0] - 2026-11-19
 ### Added
 - **Issues subsystem** (`agent_hive.issues`): GitHub-style issue tracker with sequential numbering, lifecycle state machine (`open → in_progress → blocked → resolved → closed` + reopen), labels, priorities, threaded comments, manual assignment or capability-based best-match assignment (`assign_best`), task linking, and status counters. REST endpoints under `/api/issues`.
