@@ -1,0 +1,623 @@
+# AgentHive — llms-full.txt
+
+> Full text of the AI entry documents, concatenated for LLM ingestion. Scope: the AI entry chain only (CLAUDE.md, GEMINI.md, .github/copilot-instructions.md, AGENTS.md, TASKS.md, CHAT.md, AI_CONTEXT.md). For the per-document index — including the topic reference docs under docs/ (architecture, api, agents, memory, providers, extending, operations, examples, ai-workflow, compatibility, windows, troubleshooting, deployment, migrations) — see llms.txt. Source: https://github.com/rajuferr-sketch/agent-hive (main branch). TASKS.md is a living queue: the live version always wins over this snapshot.
+
+---8<--- FILE: CLAUDE.md ---8<---
+
+# CLAUDE.md
+
+**Claude, start here.** The canonical AI guide for this repository is [`AGENTS.md`](AGENTS.md) — read it first (bootstrap protocol, quick start, commands, conventions, guardrails). Then read [`TASKS.md`](TASKS.md) for the currently assigned task. Never skip `TASKS.md`.
+
+TL;DR:
+
+- **AgentHive** = multi-agent orchestration (1 Master Agent + 20 specialized agents), Python 3.10+, FastAPI + SQLAlchemy 2 async, SQLite/PostgreSQL, typer CLI.
+- Works fully offline: the deterministic mock provider answers, and its output is always tagged `[MOCK]`.
+- Setup & run: `pip install -r requirements.txt && python run.py "request"`.
+- Host-chat mode (you are the provider): run with `--chat`, answer JSON files from `./host_requests/` into `./host_responses/` — see [`CHAT.md`](CHAT.md).
+- Verify before delivering: `pytest -q` and `ruff check src tests`.
+- Secrets only via `.env` (never commit them); agent file tools are sandboxed to `WORKSPACE_DIR` (`./workspace`).
+
+---8<--- FILE: GEMINI.md ---8<---
+
+# GEMINI.md
+
+**Gemini, start here.** The canonical AI guide for this repository is [`AGENTS.md`](AGENTS.md) — read it first (bootstrap protocol, quick start, commands, conventions, guardrails). Then read [`TASKS.md`](TASKS.md) for the currently assigned task. Never skip `TASKS.md`.
+
+TL;DR:
+
+- **AgentHive** = multi-agent orchestration (1 Master Agent + 20 specialized agents), Python 3.10+, FastAPI + SQLAlchemy 2 async, SQLite/PostgreSQL, typer CLI.
+- Works fully offline: the deterministic mock provider answers, and its output is always tagged `[MOCK]`.
+- Setup & run: `pip install -r requirements.txt && python run.py "request"`.
+- Host-chat mode (you are the provider): run with `--chat`, answer JSON files from `./host_requests/` into `./host_responses/` — see [`CHAT.md`](CHAT.md).
+- Verify before delivering: `pytest -q` and `ruff check src tests`.
+- Secrets only via `.env` (never commit them); agent file tools are sandboxed to `WORKSPACE_DIR` (`./workspace`).
+
+---8<--- FILE: .github/copilot-instructions.md ---8<---
+
+# Copilot instructions
+
+**Start from [`AGENTS.md`](../../AGENTS.md)** — it is the canonical guide for AI agents in this repository (bootstrap protocol, quick start, commands, conventions, guardrails). Then read [`TASKS.md`](../../TASKS.md) for the currently assigned task before writing any code.
+
+Core rules:
+
+- **AgentHive** = multi-agent orchestration (1 Master Agent + 20 specialized agents), Python 3.10+, FastAPI + SQLAlchemy 2 async, SQLite/PostgreSQL.
+- Runs fully offline via a deterministic mock provider; mock output is always tagged `[MOCK]` — never remove the tag.
+- After changes: `pytest -q` and `ruff check src tests` must pass.
+- Never commit secrets; providers are referenced by environment-variable *name* (e.g. `OPENAI_API_KEY`) and values live only in `.env` (git-ignored).
+- `configs/system.yaml` is operator-owned: do not edit it unless the task explicitly asks.
+- Agent file tools resolve strictly inside `WORKSPACE_DIR` (`./workspace`); never write outside it.
+
+---8<--- FILE: AGENTS.md ---8<---
+
+# AGENTS.md — AgentHive
+
+> **Nota per il proprietario (IT):** questo è il punto d'ingresso ufficiale per qualsiasi chat IA o agente di coding (Claude, ChatGPT, Gemini, Copilot, Cursor, Codex…). Flusso previsto: la chat legge questo file → legge `TASKS.md` → esegue il compito affidato. Per assegnare un compito: scrivilo in `TASKS.md` oppure apri una issue con il template "AI task". Il file è in inglese per coerenza con il resto della documentazione della repo; le chat IA lo leggono senza problemi.
+
+This file is the canonical guide for **any AI assistant, chat or coding agent** working on this repository, following the [agents.md](https://agents.md) convention. It is referenced from `CLAUDE.md`, `GEMINI.md` and `.github/copilot-instructions.md`, so it is the one file every AI tool reads first.
+
+## 1. Bootstrap protocol — do this first, in order
+
+1. **Read this file completely** before touching any code.
+2. **Read [`TASKS.md`](TASKS.md)** — the official queue of assigned tasks. Take the first open task (highest priority first). If the queue is empty but the user gave you a task in the chat, treat the user's message as the task and append it to `TASKS.md` before starting work.
+3. **Skim [`README.md`](README.md)** for the big picture. If you are a cloud or local AI chat working without a local clone, read [`AI_CONTEXT.md`](AI_CONTEXT.md) — the complete operational package (quick start, offline config, provider configs, universal rules). Open `docs/*.md` only for the area you are working on (index in section 10).
+4. **Set up and verify the environment** (section 3): the system must run end-to-end in mock mode before you change anything. This proves your environment works and gives you a baseline.
+5. **Execute the task** following the conventions (section 7) and guardrails (section 8).
+6. **Close the loop**: run `pytest -q` and `ruff check src tests`, update the task status in `TASKS.md`, and report honestly what you did — including anything you did not finish.
+
+## 2. What AgentHive is
+
+AgentHive is a multi-agent orchestration system: **1 Master Agent + 20 specialized agents** that analyze a request, decompose it into a task DAG, collaborate through shared memory and a persistent message bus, and deliver a single quality-gated result.
+
+Key facts an agent must know:
+
+- **Language/stack:** Python 3.10+, FastAPI, SQLAlchemy 2 async, SQLite (default) or PostgreSQL, Pydantic settings, typer CLI.
+- **Runs fully offline:** with no API key and no Ollama, a deterministic mock provider answers; its output is always tagged `[MOCK]` and never pretends to be real AI output.
+- **Operating modes:** A (simple, 1 agent), C (adaptive, 2–10 agents), B (collective, all 20 agents); chosen by a complexity heuristic or forced with `--mode`.
+- **Quality gate:** deliverables must score ≥ 0.7 (completeness, requirements coverage, static AST check of embedded Python, secret scan, leftover-marker detection); up to 2 revision rounds.
+- **Database:** SQLite at `./data/agent_hive.db`, created automatically; PostgreSQL via `DATABASE_URL`.
+- **No secrets in the repo:** providers are referenced by *environment variable name* in YAML (`api_key_env: OPENAI_API_KEY`); values live only in `.env` (git-ignored).
+
+## 3. Quick start (30 seconds)
+
+```bash
+pip install -r requirements.txt   # once
+python run.py "your request"      # runs a mission, prints a Markdown report
+```
+
+The database is created automatically. With no API key configured, results are deterministic mock output tagged `[MOCK]`.
+
+## 4. Commands
+
+```bash
+python run.py "request"                  # run a mission (Markdown report)
+python run.py --mode B "request"         # force collective mode (all 20 agents)
+python run.py --chat "request"           # host provider mode: YOU answer the agent calls
+python run.py demo logistica             # built-in demo (logistics plan)
+python run.py demo codice                # built-in demo (Python + pytest)
+python -m agent_hive.cli diagnose        # environment diagnostics
+python -m agent_hive.cli recover         # reset tasks orphaned by a crash
+agent-hive init-db                       # create all DB tables (server path)
+agent-hive start                         # FastAPI server on http://127.0.0.1:8000
+agent-hive status                        # agent roster + task statistics
+agent-hive agents                        # list agents, roles, provider chains
+
+make test        # pytest -q
+make lint        # ruff check src tests
+make typecheck   # mypy src
+```
+
+Full CLI and REST examples: [`README.md`](README.md) and [`docs/api.md`](docs/api.md).
+
+## 5. Host-chat mode — when YOU are the LLM provider
+
+If the user runs `python run.py --chat "request"` (or the `host` provider is selected), AgentHive delegates the actual LLM calls to the chat AI hosting it:
+
+1. AgentHive writes one JSON request file per agent call into `./host_requests/`.
+2. You read each request file, produce the answer, and write `./host_responses/<same-id>.json` containing:
+   ```json
+   {"text": "<the agent's full answer>"}
+   ```
+3. AgentHive polls for responses, consumes the files (deletes them after reading) and completes the mission, printing a Markdown report.
+
+You can answer requests in any order. Full protocol: [`CHAT.md`](CHAT.md).
+
+## 6. Repository map
+
+```text
+agent-hive/
+├── AGENTS.md               # this file — AI entry point
+├── AI_CONTEXT.md           # complete operational package for AI chats
+├── TASKS.md                # queue of assigned tasks (READ IT FIRST)
+├── CHAT.md                 # host-chat provider protocol
+├── llms.txt                # machine-readable index for LLMs
+├── llms-full.txt           # full text of the AI entry documents
+├── README.md               # full documentation
+├── SUPPORT.md              # where to get help
+├── run.py                  # one-command entry point
+├── configs/
+│   ├── system.yaml         # orchestration thresholds + quality settings (operator-owned)
+│   ├── master.yaml         # Master Agent configuration & permissions
+│   └── agents/*.yaml       # 20 agent definitions (YAML)
+├── src/agent_hive/
+│   ├── hive.py             # composition root (one Hive per process)
+│   ├── cli.py              # typer CLI
+│   ├── api/                # FastAPI app + schemas
+│   ├── orchestrator/       # master.py, planner.py, quality.py
+│   ├── agents/             # base.py, runtime.py, roles/ (20 role modules)
+│   ├── tasks/              # manager.py (state machine), scheduler.py
+│   ├── memory/             # 3-tier MemoryManager
+│   ├── communication/      # persistent MessageBus
+│   ├── providers/          # openai_compat / ollama / mock + factory
+│   ├── tools/              # permission-checked registry + builtins
+│   ├── config/             # settings (env) + YAML loader
+│   ├── db/                 # SQLAlchemy 2 async models + engine
+│   └── core/               # errors, events, ids, logging
+├── docs/                   # reference documentation (see section 10)
+├── scripts/                # install.sh, start.sh, diagnose.py, smoke_test.py
+├── tests/                  # pytest suite (SQLite, mock mode)
+├── data/                   # runtime DB (git-ignored)
+└── workspace/              # agent file-tool sandbox (git-ignored)
+```
+
+## 7. Conventions
+
+- **Python 3.10+** with type hints everywhere; async/await for I/O.
+- **Lint:** ruff (`ruff check src tests` must pass). **Types:** mypy (`make typecheck`).
+- **Tests:** pytest (`pytest -q`), SQLite + mock mode, no network needed.
+- **Adding agents:** drop a YAML in `configs/agents/` and (optionally) a role class in `src/agent_hive/agents/roles/`; role classes are auto-discovered (see [`docs/extending.md`](docs/extending.md)).
+- **Config ownership:** orchestration thresholds and quality settings live in `configs/system.yaml`; per-agent config in `configs/agents/*.yaml`.
+- **Commits/PRs:** small and focused; describe *what* and *why*; update docs when behavior changes.
+
+## 8. Guardrails — never do this
+
+- **Never commit secrets**, `.env`, keys or tokens. Secrets are referenced by env-var *name* only; values live in `.env` (git-ignored).
+- **Never edit `configs/system.yaml`** unless the task explicitly asks: it is operator-owned and read-only at runtime.
+- **Never disable or bypass the quality gate**, the secret scan or the `[MOCK]` tagging.
+- **Never present mock output as real AI output** — mock results are tagged `[MOCK]` by design; keep the tag.
+- **Never write outside the sandbox:** agent file tools resolve strictly inside `WORKSPACE_DIR` (`./workspace` by default); escaping paths raise `AgentError`.
+- **Never enable the `file`/`http` tool families** in configs unless the task explicitly requires it (`ENABLE_FILE_TOOLS` / `ENABLE_HTTP_TOOLS`).
+
+## 9. Definition of done
+
+A task is complete when **all** of these hold:
+
+1. The acceptance criteria in the `TASKS.md` entry are met.
+2. `pytest -q` passes and `ruff check src tests` is clean.
+3. Documentation is updated if behavior or interfaces changed.
+4. The task entry in `TASKS.md` is moved to "Compiti completati" with a short result summary.
+5. Anything unfinished, skipped or assumed is stated explicitly in your final report.
+
+## 10. Documentation index
+
+| Document | Read it when... |
+|---|---|
+| [`AI_CONTEXT.md`](AI_CONTEXT.md) | You are a cloud or local AI chat: complete operational package — universal quick start, minimal offline config, provider configs (cloud/local), universal rules, per-AI instructions, ready-made prompt |
+| [`docs/architecture.md`](docs/architecture.md) | You need the layered architecture, Master Agent walkthrough, task lifecycle or quality gate details |
+| [`docs/api.md`](docs/api.md) | You work on REST/WebSocket endpoints or clients |
+| [`docs/agents.md`](docs/agents.md) | You touch agent roles, YAML schema or collaboration |
+| [`docs/memory.md`](docs/memory.md) | You work on the 3-tier memory, versioning or pruning |
+| [`docs/providers.md`](docs/providers.md) | You touch provider chains, the circuit breaker, add a provider, or need local/cloud provider configs |
+| [`docs/extending.md`](docs/extending.md) | You add agent #21, tools or providers |
+| [`docs/operations.md`](docs/operations.md) | Install problems, PostgreSQL, diagnostics, recovery |
+| [`docs/examples.md`](docs/examples.md) | You need worked end-to-end missions or Python SDK usage |
+| [`docs/ai-workflow.md`](docs/ai-workflow.md) | You follow the GitHub/PR methodology, permissions and the correct modification order |
+| [`docs/compatibility.md`](docs/compatibility.md) | You are Claude, ChatGPT/Codex or Z.AI/GLM and need per-AI working instructions |
+| [`docs/windows.md`](docs/windows.md) | You work on Windows: venv activation and cross-platform rules |
+| [`docs/troubleshooting.md`](docs/troubleshooting.md) | Something is broken: quick diagnosis of the most common problems |
+| [`docs/deployment.md`](docs/deployment.md) | You deploy with Docker, go to production or need the mandatory security checklist |
+| [`docs/migrations.md`](docs/migrations.md) | You work on the database: PostgreSQL and the Alembic adoption plan |
+
+---8<--- FILE: TASKS.md ---8<---
+
+# Coda dei compiti affidati — TASKS.md
+
+**Come funziona.** Questo file è il canale ufficiale con cui l'utente affida compiti alle chat IA che lavorano su questa repository. Ogni chat IA o agente che apre questa repo DEVE:
+
+1. leggere prima [`AGENTS.md`](AGENTS.md) (protocollo di bootstrap, comandi, convenzioni, regole di sicurezza);
+2. leggere questo file e prendere il primo compito aperto (priorità più alta);
+3. eseguire il compito seguendo le regole in `AGENTS.md`;
+4. a fine lavoro, spostare il compito in "Compiti completati" con un breve resoconto.
+
+**Per assegnare un compito:** copia il template qui sotto nella sezione "Compiti aperti", compilando tutti i campi. In alternativa puoi aprire una issue con il template "AI task" (`.github/ISSUE_TEMPLATE/ai-task.md`): le chat IA con accesso a GitHub la vedranno allo stesso modo.
+
+---
+
+## Stato attuale
+
+**1 compito aperto:** T-002 — applicare la matrice CI OS x Python a `.github/workflows/ci.yml`. Richiede il permesso `workflows` (che l'integrazione GitHub in uso non ha) oppure l'intervento manuale dell'owner: la specifica completa pronta da incollare è in [`AI_CONTEXT.md`](AI_CONTEXT.md), sezione 12 ("Migliorie CI").
+
+---
+
+## Compiti aperti
+
+### T-002 — Applicare la matrice CI OS x Python a `.github/workflows/ci.yml`
+- **Stato:** todo
+- **Priorità:** alta
+- **Assegnato a:** owner (applicazione manuale) oppure una chat IA con permesso `workflows`
+- **Descrizione:** sostituire il job `test` in `.github/workflows/ci.yml` con la matrice completa `ubuntu-latest` / `windows-latest` / `macos-latest` x Python `3.10` / `3.11` / `3.12` (fail-fast: false) e aggiungere il job `typecheck` (`mypy src`). La specifica completa pronta da incollare è in `AI_CONTEXT.md`, sezione 12 ("Migliorie CI"); il job `lint` resta invariato.
+- **Criteri di accettazione:** `.github/workflows/ci.yml` contiene la matrice e il job `typecheck`; la run CI su `main` è verde su tutte le celle della matrice.
+- **Vincoli:** non toccare altro; il job `lint` non cambia; nessuna modifica al codice sorgente.
+- **Esito / note:** da compilare a fine lavoro.
+
+<!-- Incolla qui i nuovi compiti, il più importante in cima. Rimuovi il commento e usa il template. -->
+
+## Template compito
+
+```markdown
+### T-XXX — <titolo breve del compito>
+- **Stato:** todo | in_progress | done
+- **Priorità:** alta | media | bassa
+- **Assegnato a:** <nome della chat/agente, oppure "qualsiasi">
+- **Descrizione:** <cosa fare, con tutti i dettagli necessari>
+- **Criteri di accettazione:** <come si verifica che il compito è fatto>
+- **Vincoli:** <limiti, es. "non toccare configs/system.yaml">
+- **Esito / note:** <da compilare a fine lavoro>
+```
+
+## Compiti completati
+
+### T-001 — Integrare il pacchetto "Parte completa per IA cloud e locale"
+- **Stato:** done
+- **Priorità:** alta
+- **Assegnato a:** Z.AI (chat utente, sessione 2026-11-22/23)
+- **Descrizione:** aggiungere alla repo tutte le 18 sezioni del pacchetto fornito dall'utente e i file essenziali di community/CI indicati nella sezione 12 del pacchetto.
+- **Criteri di accettazione:** tutte le sezioni presenti nei file previsti e collegate dagli indici; indici aggiornati; CHANGELOG aggiornato; TASKS.md aggiornato.
+- **Vincoli:** solo documentazione e file di configurazione CI/community; nessuna modifica al codice sorgente; nessun segreto.
+- **Esito / note:** completato il 2026-11-23. Contenuto distribuito in: `AI_CONTEXT.md` (sez. 1, 2, 7, 10, 11, 12, 17, 18 + specifica CI pronta), `docs/providers.md` (esteso con sez. 3, 4, 15), `docs/deployment.md` (sez. 5, 13), `docs/migrations.md` (sez. 14), `docs/compatibility.md` (sez. 9), `docs/windows.md`, `docs/troubleshooting.md`, `docs/ai-workflow.md` (sez. 6, 16), `llms-full.txt`, `llms.txt` (aggiornato), `SUPPORT.md`, `.github/CODEOWNERS`, `.github/CODE_OF_CONDUCT.md`, `.github/PULL_REQUEST_TEMPLATE.md`, `.github/ISSUE_TEMPLATE/bug_report.yml`, `.github/ISSUE_TEMPLATE/feature_request.yml`, `AGENTS.md` (indice documentazione aggiornato), `CHANGELOG.md` (voce [Unreleased]). **Residuo:** la matrice CI non è applicabile da questa integrazione (permesso `workflows` mancante) — tracciata come T-002.
+
+<!-- Sposta qui i compiti terminati, con data ed esito. -->
+
+---8<--- FILE: CHAT.md ---8<---
+
+# Using AgentHive inside an AI chat
+
+0. Install dependencies once: `pip install -r requirements.txt`.
+1. Download/clone the repository.
+2. Run `python run.py --chat "your request"`.
+3. AgentHive writes one JSON file per agent call into `./host_requests/`.
+4. Read each request file, produce the answer, and write a JSON file with the same id into `./host_responses/`:
+   ```json
+   {"text": "<the agent's full answer>"}
+   ```
+5. AgentHive polls for responses and completes the mission, printing a Markdown report.
+
+Files are consumed (deleted) after reading. You can answer them in any order.
+
+See also: [`AGENTS.md`](AGENTS.md) — the full bootstrap protocol for AI agents working on this repository — and [`TASKS.md`](TASKS.md) — the current queue of assigned tasks.
+
+---8<--- FILE: AI_CONTEXT.md ---8<---
+
+# AI_CONTEXT.md — contesto operativo completo per IA cloud e locale
+
+> Questo file è il riferimento operativo completo per qualsiasi IA (chat cloud o runtime locale) che lavora su AgentHive. Fa parte del pacchetto "Parte completa per IA cloud e locale" integrato nella repository il 2026-11-23. Per il protocollo d'ingresso (cosa leggere, in quale ordine) vedi [`AGENTS.md`](AGENTS.md); per la coda dei compiti affidati vedi [`TASKS.md`](TASKS.md).
+
+**Dove si trova ogni parte del pacchetto:**
+
+| Sezione del pacchetto | Posizione |
+|---|---|
+| 1. Quick Start universale | qui sotto |
+| 2. Configurazione locale minima | qui sotto |
+| 3. Provider locali (Ollama, LM Studio, vLLM, LiteLLM) | [docs/providers.md](docs/providers.md) |
+| 4. Provider cloud (OpenAI, Z.AI/GLM, Azure, Anthropic, Google) | [docs/providers.md](docs/providers.md) |
+| 5. Docker | [docs/deployment.md](docs/deployment.md) |
+| 6. GitHub (metodologia, permessi, PR) | [docs/ai-workflow.md](docs/ai-workflow.md) |
+| 7. Comandi CLI | qui sotto |
+| 8. API principali | [README.md](README.md) e [docs/api.md](docs/api.md) |
+| 9. Compatibilità tra modelli IA | [docs/compatibility.md](docs/compatibility.md) |
+| 10. Regole universali per tutte le IA | qui sotto |
+| 11. Struttura da preservare | qui sotto |
+| 12. Cosa aggiungere al repository | qui sotto (con stato di applicazione) |
+| 13. Sicurezza minima obbligatoria | [docs/deployment.md](docs/deployment.md) |
+| 14. Database | [docs/migrations.md](docs/migrations.md) |
+| 15. Aggiunta provider completo | [docs/providers.md](docs/providers.md) |
+| 16. Ordine corretto per modifiche | [docs/ai-workflow.md](docs/ai-workflow.md) |
+| 17. Prompt pronto da dare a qualunque IA | qui sotto |
+| 18. Stato finale previsto | qui sotto |
+
+## 1. Quick Start universale
+
+```bash
+git clone https://github.com/rajuferr-sketch/agent-hive.git
+cd agent-hive
+python -m venv .venv
+```
+
+Linux/macOS/WSL:
+
+```bash
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
+```
+
+Windows PowerShell:
+
+```powershell
+.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python -m pip install -r requirements.txt
+python -m pip install -r requirements-dev.txt
+```
+
+Verifica:
+
+```bash
+python scripts/diagnose.py
+python run.py "Diagnose this repository"
+pytest -q
+python -m ruff check src tests
+python -m mypy src
+```
+
+## 2. Configurazione locale minima
+
+Copia il template:
+
+```bash
+cp .env.example .env
+```
+
+Windows:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+Configurazione offline:
+
+```dotenv
+DATABASE_URL=sqlite+aiosqlite:///./data/agent_hive.db
+ALLOW_MOCK=true
+LOG_LEVEL=INFO
+CONFIG_DIR=./configs
+WORKSPACE_DIR=./workspace
+MAX_CONCURRENCY=8
+DEFAULT_TASK_TIMEOUT=120
+DEFAULT_MAX_RETRIES=2
+API_HOST=127.0.0.1
+API_PORT=8000
+ENABLE_FILE_TOOLS=false
+ENABLE_HTTP_TOOLS=false
+```
+
+## 7. Comandi CLI
+
+```bash
+python run.py "Write a haiku"
+python run.py --mode A "Write a Python hello world"
+python run.py --mode C "Build a REST API"
+python run.py --mode B "Create a complete SaaS architecture"
+python run.py --format json "Analyze the repository"
+python run.py --chat "Answer using the host AI"
+python run.py demo logistica
+python run.py demo codice
+```
+
+Con pacchetto installato:
+
+```bash
+agent-hive diagnose
+agent-hive init-db
+agent-hive run "Create a REST API" --mode C --json
+agent-hive agents
+agent-hive status
+agent-hive recover
+agent-hive start --host 127.0.0.1 --port 8000
+```
+
+## 10. Regole universali per tutte le IA
+
+- Non modificare segreti.
+- Non modificare `.env`.
+- Non modificare database SQLite.
+- Non modificare workspace.
+- Non modificare configurazioni fondamentali senza approvazione.
+- Non aggiungere dipendenze senza motivo.
+- Non assumere un sistema Unix su Windows.
+- Non usare comandi Bash nei file Python.
+- Non usare URL hardcoded nei provider.
+- Non usare API key nei file versionati.
+- Non usare network negli unit test.
+- Non fare commit direttamente su `main`.
+- Non fare merge di una PR senza test.
+- Aggiornare test e documentazione insieme al codice.
+- Usare type hints moderni compatibili con Python 3.10.
+- Usare `pathlib` anziché concatenazioni manuali di percorsi.
+- Usare logging anziché print nelle librerie.
+- Usare eccezioni specifiche.
+- Validare input API.
+- Validare YAML.
+- Validare JSON restituito dai modelli.
+- Invalidare cache/circuit breaker dopo configurazioni nuove.
+- Gestire cancellazione e timeout.
+- Rendere tutte le operazioni ripetibili.
+- Rendere gli script idempotenti.
+- Registrare tutte le modifiche nello changelog.
+
+> Nota operativa: la regola "Non fare commit direttamente su `main`" è vincolante per le IA e per i contributi esterni. L'owner può decidere quando applicarla a se stesso.
+
+## 11. Struttura da preservare
+
+```text
+agent-hive/
+├── .github/
+├── configs/
+│   ├── system.yaml
+│   ├── master.yaml
+│   └── agents/
+├── docs/
+├── scripts/
+├── src/agent_hive/
+│   ├── api/
+│   ├── agents/
+│   ├── communication/
+│   ├── config/
+│   ├── core/
+│   ├── db/
+│   ├── memory/
+│   ├── orchestrator/
+│   ├── providers/
+│   ├── tasks/
+│   └── tools/
+├── tests/
+├── workspace/
+├── data/
+├── Dockerfile
+├── docker-compose.yml
+├── pyproject.toml
+├── requirements.txt
+├── requirements-dev.txt
+├── AGENTS.md
+└── README.md
+```
+
+## 12. Cosa aggiungere al repository
+
+**Stato di applicazione del pacchetto (aggiornato al 2026-11-23):** tutte le parti documentali e di community sono state applicate. Le voci già presenti nella repository restano quelle ufficiali; le altre sono state create. La matrice CI è specificata ma non ancora applicata: l'integrazione GitHub in uso non possiede il permesso di modificare i file in `.github/workflows/` — vedi "Migliorie CI" qui sotto e il compito T-002 in [`TASKS.md`](TASKS.md).
+
+### File essenziali
+
+| File | Stato |
+|---|---|
+| `AI_CONTEXT.md` | creato (questo file) |
+| `llms.txt` | già presente, aggiornato con i link del pacchetto |
+| `llms-full.txt` | creato |
+| `CODEOWNERS` | creato in `.github/CODEOWNERS` |
+| `.github/CODE_OF_CONDUCT.md` | creato |
+| `.github/PULL_REQUEST_TEMPLATE.md` | creato |
+| `.github/ISSUE_TEMPLATE/bug_report.yml` | creato |
+| `.github/ISSUE_TEMPLATE/feature_request.yml` | creato |
+| `SECURITY.md` | già presente |
+| `SUPPORT.md` | creato |
+| `CHANGELOG.md` | già presente, aggiornato con la voce del pacchetto |
+| `CONTRIBUTING.md` | già presente |
+| `docs/providers.md` | già presente, esteso con provider locali/cloud (sez. 3 e 4) e contratto provider (sez. 15) |
+| `docs/compatibility.md` | creato |
+| `docs/windows.md` | creato |
+| `docs/troubleshooting.md` | creato |
+| `docs/deployment.md` | creato |
+| `docs/ai-workflow.md` | creato |
+| `docs/migrations.md` | creato |
+
+### Migliorie CI
+
+- **Matrice OS x Python (specifica pronta, da applicare manualmente):** sostituire `.github/workflows/ci.yml` con la configurazione qui sotto — job `lint` invariato, nuovo job `typecheck` (mypy), job `test` in matrice `ubuntu-latest` / `windows-latest` / `macos-latest` x Python `3.10` / `3.11` / `3.12` con fail-fast disattivato. Applicazione richiede un token con permesso `workflows` oppure l'intervento manuale dell'owner (tracciato come T-002 in [`TASKS.md`](TASKS.md)).
+
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+jobs:
+  lint:
+    name: Lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements-dev.txt
+
+      - name: Ruff check
+        run: ruff check src tests
+
+  typecheck:
+    name: Typecheck (mypy)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          pip install -r requirements-dev.txt
+          pip install -e ".[dev]"
+
+      - name: MyPy
+        run: mypy src
+
+  test:
+    name: Tests (${{ matrix.os }}, Python ${{ matrix.python-version }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        python-version: ["3.10", "3.11", "3.12"]
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt -r requirements-dev.txt
+          pip install -e ".[dev]"
+
+      - name: Run test suite
+        run: pytest -q
+```
+
+- Pianificate per una fase successiva (da applicare singolarmente e verificare in CI prima del merge): CodeQL, coverage, SBOM, secret scan, dependency review, Docker build, smoke test, test packaging, test PostgreSQL.
+
+## 17. Prompt pronto da dare a qualunque IA
+
+```text
+Stai lavorando sul repository rajuferr-sketch/agent-hive.
+
+Leggi AGENTS.md, README.md e pyproject.toml.
+Non modificare segreti, .env, data/, workspace/ o configurazioni
+fondamentali senza istruzioni esplicite.
+Lavora su un nuovo branch.
+Mantieni Python >=3.10 compatibile.
+Mantieni compatibilità Linux, Windows, macOS e Docker.
+Usa provider mock nei test.
+Esegui prima i test esistenti.
+Aggiungi test per ogni modifica.
+Esegui python scripts/diagnose.py, pytest -q,
+python -m ruff check src tests e python -m mypy src.
+Mostrami il piano prima delle modifiche.
+Crea il diff finale.
+Non creare, modificare o esporre chiavi API.
+Apri una pull request solo dopo che tutti i controlli passano.
+```
+
+## 18. Stato finale previsto
+
+Una volta applicato questo pacchetto:
+
+- compatibilità reale con modelli cloud e locali;
+- GitHub Actions multipiattaforma;
+- Docker e PostgreSQL verificati;
+- provider IA configurabili;
+- API protetta;
+- database migrabile;
+- installazione locale ripetibile;
+- istruzioni leggibili da ogni IA;
+- codice testato prima del merge;
+- release e SBOM;
+- branch protetto;
+- segreti fuori dal repository;
+- documentazione completa;
+- supporto Claude, ChatGPT, Z.AI/GLM, Ollama, LM Studio, vLLM e LiteLLM;
+- contributi sicuri tramite PR;
+- operazioni locali e cloud documentate;
+- progetto pronto per uso personale, comunitario e commerciale.
