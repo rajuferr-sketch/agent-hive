@@ -1,0 +1,58 @@
+name: Bug report
+description: Segnala un problema nel funzionamento di AgentHive
+title: "[BUG] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Prima di aprire il bug: leggi [docs/troubleshooting.md](../blob/main/docs/troubleshooting.md) ed esegui `python scripts/diagnose.py`.
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Descrizione del problema
+      description: Cosa è successo e cosa ti aspettavi.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Passi per riprodurre
+      placeholder: |
+        1. python run.py "..."
+        2. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Comportamento atteso
+    validations:
+      required: true
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Sistema operativo
+      options:
+        - Linux
+        - Windows
+        - macOS
+        - Docker
+    validations:
+      required: true
+
+  - type: input
+    id: python
+    attributes:
+      label: Versione Python
+      placeholder: "3.12"
+
+  - type: input
+    id: provider
+    attributes:
+      label: Provider in uso
+      description: mock, openai_compatible, ollama, host...
+      placeholder: mock
