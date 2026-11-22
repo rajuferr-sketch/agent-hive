@@ -1,0 +1,21 @@
+# AgentHive
+
+> Multi-agent orchestration system: 1 Master Agent + 20 specialized AI agents that analyze a request, decompose it into a task DAG, collaborate through shared memory and a persistent message bus, and deliver a single quality-gated result. Python 3.10+, FastAPI + SQLAlchemy 2 async, SQLite/PostgreSQL. Runs fully offline via a deterministic mock provider (output tagged `[MOCK]`).
+
+Entry points for AI assistants:
+
+- [AGENTS.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/AGENTS.md): canonical guide for AI agents — bootstrap protocol, quick start, commands, conventions, guardrails.
+- [TASKS.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/TASKS.md): current queue of assigned tasks — read this before starting any work.
+- [README.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/README.md): full feature overview, quick start, configuration, CLI and API examples.
+- [CHAT.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/CHAT.md): host-chat provider protocol — how to use AgentHive from inside an AI chat.
+
+Reference documentation:
+
+- [docs/architecture.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/docs/architecture.md): layered architecture, Master Agent walkthrough, task lifecycle, quality gate.
+- [docs/api.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/docs/api.md): every REST endpoint + WebSocket event format.
+- [docs/agents.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/docs/agents.md): BaseAgent contract, all 20 roles, YAML schema, collaboration.
+- [docs/memory.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/docs/memory.md): 3-tier memory, versioning, archival, pruning.
+- [docs/providers.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/docs/providers.md): provider chains, circuit breaker, custom providers.
+- [docs/extending.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/docs/extending.md): add agent #21, tools, providers; tuning and scaling.
+- [docs/operations.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/docs/operations.md): install, PostgreSQL, diagnostics, recovery, troubleshooting.
+- [docs/examples.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/docs/examples.md): end-to-end worked missions + Python SDK usage.
