@@ -6,6 +6,8 @@ Entry points for AI assistants:
 
 - [AGENTS.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/AGENTS.md): canonical guide for AI agents — bootstrap protocol, quick start, commands, conventions, guardrails.
 - [TASKS.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/TASKS.md): current queue of assigned tasks — read this before starting any work.
+- [AI_CONTEXT.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/AI_CONTEXT.md): complete operational package for AI chats (cloud and local) — universal quick start, minimal offline config, provider configs, universal rules, per-AI instructions, ready-made prompt.
+- [llms-full.txt](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/llms-full.txt): full text of the AI entry documents (CLAUDE.md, GEMINI.md, copilot-instructions.md, AGENTS.md, TASKS.md, CHAT.md, AI_CONTEXT.md) concatenated in one file.
 - [README.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/README.md): full feature overview, quick start, configuration, CLI and API examples.
 - [CHAT.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/CHAT.md): host-chat provider protocol — how to use AgentHive from inside an AI chat.
 
@@ -15,7 +17,18 @@ Reference documentation:
 - [docs/api.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/docs/api.md): every REST endpoint + WebSocket event format.
 - [docs/agents.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/docs/agents.md): BaseAgent contract, all 20 roles, YAML schema, collaboration.
 - [docs/memory.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/docs/memory.md): 3-tier memory, versioning, archival, pruning.
-- [docs/providers.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/docs/providers.md): provider chains, circuit breaker, custom providers.
+- [docs/providers.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/docs/providers.md): provider chains, circuit breaker, local/cloud provider configs, custom providers.
 - [docs/extending.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/docs/extending.md): add agent #21, tools, providers; tuning and scaling.
 - [docs/operations.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/docs/operations.md): install, PostgreSQL, diagnostics, recovery, troubleshooting.
 - [docs/examples.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/docs/examples.md): end-to-end worked missions + Python SDK usage.
+- [docs/ai-workflow.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/docs/ai-workflow.md): GitHub methodology, permissions and the correct modification order for AI-driven changes.
+- [docs/compatibility.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/docs/compatibility.md): per-AI working instructions (Claude, ChatGPT/Codex, Z.AI/GLM).
+- [docs/windows.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/docs/windows.md): Windows setup and cross-platform rules.
+- [docs/troubleshooting.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/docs/troubleshooting.md): quick diagnosis of the most common problems.
+- [docs/deployment.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/docs/deployment.md): Docker workflow, production settings and the mandatory security checklist.
+- [docs/migrations.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/docs/migrations.md): PostgreSQL and the Alembic adoption plan.
+
+Community:
+
+- [SUPPORT.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/SUPPORT.md): where to get help and which issue template to use.
+- [SECURITY.md](https://raw.githubusercontent.com/rajuferr-sketch/agent-hive/main/SECURITY.md): how to report security vulnerabilities.
