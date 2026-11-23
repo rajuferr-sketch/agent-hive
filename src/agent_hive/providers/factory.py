@@ -21,7 +21,9 @@ from agent_hive.config.loader import ProviderConfig
 from agent_hive.config.settings import get_settings
 from agent_hive.core.errors import ConfigError, ProviderError
 from agent_hive.core.logging import get_logger
+from agent_hive.providers.anthropic import AnthropicProvider
 from agent_hive.providers.base import CompletionResult, LLMProvider
+from agent_hive.providers.gemini import GeminiProvider
 from agent_hive.providers.host import HostProvider
 from agent_hive.providers.mock import MockProvider
 from agent_hive.providers.ollama import OllamaProvider
@@ -31,6 +33,8 @@ log = get_logger("agent_hive.providers")
 
 _REGISTRY: dict[str, type[LLMProvider]] = {
     "openai_compatible": OpenAICompatProvider,
+    "anthropic_native": AnthropicProvider,
+    "gemini_native": GeminiProvider,
     "ollama": OllamaProvider,
     "host": HostProvider,
     "mock": MockProvider,
