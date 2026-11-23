@@ -48,9 +48,9 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from typing import Any
 
-from fastapi import FastAPI, HTTPException, Query, WebSocket, WebSocketDisconnect
+from fastapi import FastAPI, HTTPException, Query, Request, WebSocket, WebSocketDisconnect
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, Response
 
 from agent_hive.api.schemas import (
     AgentRegister,
@@ -67,11 +67,30 @@ from agent_hive.api.schemas import (
     SharedMemoryWrite,
     TaskCreate,
 )
+from agent_hive.connectors.ollama_api import build_ollama_router
+from agent_hive.connectors.openai_api import build_openai_router
+from agent_hive.connectors.ws import build_ws_router
 from agent_hive.core.errors import AgentError, ConfigError, PermissionDenied
+from agent_hive.gateway.gateway import UniversalRequest
 from agent_hive.hive import Hive
+from agent_hive.mcp.http import build_mcp_router
+from agent_hive.mcp.server import MCPServerCore
+from agent_hive.mcp.tools import ToolContext
+from agent_hive.security.middleware import OPEN_PATHS, SecurityCoordinator
 from agent_hive.version import __version__
 
 _STATE: Hive | None = None
+_SECURITY: SecurityCoordinator | None = None
+
+
+class _AppState:
+    """Late-bound holder so connectors can reach the live Hive."""
+
+    @staticmethod
+    def hive() -> Hive:
+        if _STATE is None:
+            raise RuntimeError("Hive not initialized")
+        return _STATE
 
 
 def get_hive() -> Hive:
@@ -80,11 +99,24 @@ def get_hive() -> Hive:
     return _STATE
 
 
+def get_security() -> SecurityCoordinator:
+    global _SECURITY
+    if _SECURITY is None:
+        _SECURITY = SecurityCoordinator()
+    return _SECURITY
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     global _STATE
     _STATE = Hive()
     await _STATE.startup()
+    if _STATE.settings.selfheal_enabled:
+        from agent_hive.selfheal.loop import SelfHeal
+
+        healer: Any = SelfHeal(_STATE, safe_stop=_STATE.shutdown)
+        _STATE.selfheal = healer
+        healer.start()
     try:
         yield
     finally:
@@ -107,13 +139,35 @@ def create_app() -> FastAPI:
     )
 
     @app.middleware("http")
-    async def api_key_guard(request, call_next):
+    async def security_middleware(request, call_next):
+        """Token auth + rate limiting (optional-by-default; see middleware docs)."""
+        path = request.url.path
+        if path in OPEN_PATHS:
+            return await call_next(request)
+        security = get_security()
+        identity = await security.resolve(request)
+        request.state.identity = identity
+        allowed, retry_after = await security.check_rate(request, identity)
+        if not allowed:
+            return JSONResponse(
+                status_code=429,
+                headers={"Retry-After": str(retry_after)},
+                content={"detail": "rate limit exceeded"},
+            )
+        return await call_next(request)
+
+    @app.middleware("http")
+    async def legacy_api_key_guard(request, call_next):
+        """Back-compat static key check (kept for existing deployments)."""
         import os
 
         key = os.getenv("AGENT_HIVE_API_KEY")
         if key and request.url.path.startswith("/api"):
-            if request.headers.get("x-api-key") != key:
-                from fastapi.responses import JSONResponse
+            supplied = (
+                request.headers.get("x-api-key")
+                or (request.headers.get("authorization") or "").removeprefix("Bearer ")
+            )
+            if supplied and supplied != key:
                 return JSONResponse(status_code=401, content={"detail": "invalid or missing API key"})
         return await call_next(request)
 
@@ -572,11 +626,313 @@ def create_app() -> FastAPI:
         finally:
             hive.events.unsubscribe(_forward)
 
+    # =====================================================================
+    # Universal AI Platform endpoints (gateway / memory / MCP / connectors)
+    # =====================================================================
+    app.include_router(build_openai_router(_AppState))
+    app.include_router(build_ollama_router(_AppState))
+    app.include_router(build_ws_router(_AppState))
+
+    async def _mcp_ctx_factory(session):
+        return ToolContext(
+            hive=get_hive(), umemory=get_hive().umemory,
+            identity=session.identity, client="mcp",
+        )
+
+    async def _mcp_identity_resolver(request):
+        """Bearer-token identity for MCP-over-HTTP (local-trust fallback)."""
+        security = get_security()
+        return await security.resolve(request)
+
+    from agent_hive.mcp.tools import get_registry
+
+    _mcp_core = MCPServerCore(
+        registry=get_registry(),
+        ctx_factory=_mcp_ctx_factory,
+        server_version=__version__,
+    )
+    app.include_router(build_mcp_router(_mcp_core, _mcp_identity_resolver))
+
     @app.exception_handler(PermissionDenied)
     async def permission_handler(_req: Any, exc: PermissionDenied) -> JSONResponse:
         return JSONResponse(status_code=403, content={"detail": str(exc)})
 
+    # ------------------------------------------------- universal gateway API
+    @app.post("/api/universal/request", response_model=None)
+    async def universal_request(request: Request) -> Response | dict[str, Any]:
+        """Provider-agnostic natural-language entry point (any client)."""
+        hive = get_hive()
+        payload = await request.json()
+        response = await hive.gateway.handle(
+            UniversalRequest(
+                instruction=str(payload.get("instruction") or ""),
+                client_id=str(payload.get("client_id") or "rest"),
+                client_kind="rest",
+                session_id=str(payload.get("session_id") or "global"),
+                user_id=str(payload.get("user_id") or "default"),
+                project_id=str(payload.get("project_id") or "default"),
+                mode=payload.get("mode"),
+                title=payload.get("title"),
+                timeout_s=payload.get("timeout_s"),
+            ),
+            identity=getattr(request.state, "identity", None),
+        )
+        status = 200 if response.ok else _error_status(response.error)
+        return JSONResponse(
+            status_code=status,
+            content={
+                "ok": response.ok, "request_id": response.request_id,
+                "session_id": response.session_id,
+                "data": response.data, "error": response.error,
+            },
+        )
+
+    @app.post("/api/universal/resume", response_model=None)
+    async def universal_resume(request: Request) -> Response | dict[str, Any]:
+        hive = get_hive()
+        payload = await request.json()
+        session_id = str(payload.get("session_id") or "")
+        instruction = str(payload.get("instruction") or "")
+        if not session_id or not instruction:
+            return JSONResponse(status_code=422, content={
+                "detail": "session_id and instruction are required"})
+        response = await hive.gateway.resume(
+            session_id, instruction,
+            client_id=str(payload.get("client_id") or "rest"),
+            client_kind="rest",
+            identity=getattr(request.state, "identity", None),
+            user_id=str(payload.get("user_id") or "default"),
+            project_id=str(payload.get("project_id") or "default"),
+        )
+        status = 200 if response.ok else _error_status(response.error)
+        return JSONResponse(status_code=status, content={
+            "ok": response.ok, "request_id": response.request_id,
+            "session_id": response.session_id,
+            "data": response.data, "error": response.error,
+        })
+
+    @app.post("/api/universal/tool", response_model=None)
+    async def universal_tool(request: Request) -> Response | dict[str, Any]:
+        """Execute one of the 18 tools over REST (for non-MCP clients)."""
+        hive = get_hive()
+        payload = await request.json()
+        outcome = await hive.gateway.tool_call(
+            str(payload.get("name") or ""),
+            payload.get("arguments") or {},
+            identity=getattr(request.state, "identity", None),
+            client="rest",
+        )
+        return JSONResponse(status_code=200 if outcome.get("ok") else 400,
+                            content=outcome)
+
+    @app.get("/api/universal/tools")
+    async def universal_tools() -> dict[str, Any]:
+        from agent_hive.connectors.generic import tool_manifest
+
+        return {
+            "tools": tool_manifest(get_hive().tool_registry),
+            "count": len(get_hive().tool_registry.names()),
+            "transports": ["mcp-streamable-http", "mcp-stdio", "rest",
+                           "websocket", "openai-compatible", "ollama-compatible",
+                           "generic-tool-calling"],
+        }
+
+    @app.get("/api/universal/session/{session_id}/context")
+    async def universal_session_context(session_id: str, limit: int = 50) -> list[dict[str, Any]]:
+        return await get_hive().umemory.history(session_id=session_id, limit=limit)
+
+    @app.get("/api/universal/memory/stats")
+    async def universal_memory_stats() -> dict[str, Any]:
+        return await get_hive().umemory.stats()
+
+    @app.get("/api/universal/memory")
+    async def universal_memory_search(
+        q: str | None = Query(default=None),
+        memory_type: str | None = Query(default=None),
+        user_id: str | None = Query(default=None),
+        project_id: str | None = Query(default=None),
+        session_id: str | None = Query(default=None),
+        limit: int = Query(default=20, le=100),
+    ) -> list[dict[str, Any]]:
+        hive = get_hive()
+        if q:
+            return await hive.umemory.search(
+                q, memory_type=memory_type, user_id=user_id,
+                project_id=project_id, session_id=session_id, limit=limit)
+        return await hive.umemory.list_records(
+            memory_type=memory_type, user_id=user_id,
+            project_id=project_id, session_id=session_id, limit=limit)
+
+    @app.post("/api/universal/memory", response_model=None)
+    async def universal_memory_write(request: Request) -> Response | dict[str, Any]:
+        hive = get_hive()
+        payload = await request.json()
+        try:
+            record = await hive.umemory.save(
+                memory_type=str(payload.get("memory_type") or "episodic"),
+                key=str(payload.get("key") or ""),
+                content=str(payload.get("content") or ""),
+                value=payload.get("value") or {},
+                user_id=str(payload.get("user_id") or "default"),
+                project_id=str(payload.get("project_id") or "default"),
+                session_id=str(payload.get("session_id") or "global"),
+                tags=[str(t) for t in (payload.get("tags") or [])],
+                access=str(payload.get("access") or "project"),
+                ttl_seconds=payload.get("ttl_seconds"),
+                created_by_client="rest",
+            )
+        except AgentError as exc:
+            return JSONResponse(status_code=422, content={"detail": str(exc)})
+        return record
+
+    # ------------------------------------------------------- security API
+    @app.post("/api/security/tokens", response_model=None)
+    async def issue_token(request: Request) -> Response | dict[str, Any]:
+        identity = getattr(request.state, "identity", None)
+        if identity is None or not identity.has_scope("security:manage"):
+            return JSONResponse(status_code=403, content={"detail": "security:manage scope required"})
+        payload = await request.json()
+        from agent_hive.security.rbac import role_scopes
+
+        role = str(payload.get("role") or "client")
+        scopes = payload.get("scopes") or role_scopes(role)
+        ident, raw = await get_security().tokens.issue(
+            subject=str(payload.get("subject") or "client"),
+            scopes=[str(s) for s in scopes],
+            role=role,
+            ttl_s=payload.get("ttl_s"),
+        )
+        get_security().invalidate_cache()
+        await get_security().audit.log(identity.subject, "token.issued", ident.token_id, "ok", "rest")
+        return {"token": raw, "id": ident.token_id, "role": ident.role,
+                "scopes": ident.scopes, "note": "store this token now — it is not recoverable"}
+
+    @app.get("/api/security/tokens")
+    async def list_tokens() -> list[dict[str, Any]]:
+        return await get_security().tokens.list_tokens()
+
+    @app.post("/api/security/tokens/{token_id}/revoke", response_model=None)
+    async def revoke_token(token_id: str, request: Request) -> Response | dict[str, Any]:
+        identity = getattr(request.state, "identity", None)
+        if identity is None or not identity.has_scope("security:manage"):
+            return JSONResponse(status_code=403, content={"detail": "security:manage scope required"})
+        ok = await get_security().tokens.revoke(token_id)
+        return {"revoked": bool(ok), "token_id": token_id}
+
+    @app.post("/api/security/rotate", response_model=None)
+    async def rotate_token(request: Request) -> Response | dict[str, Any]:
+        payload = await request.json()
+        result = await get_security().tokens.rotate(str(payload.get("token") or ""))
+        if result is None:
+            return JSONResponse(status_code=404, content={"detail": "token unknown or already revoked"})
+        ident, raw = result
+        return {"token": raw, "id": ident.token_id, "scopes": ident.scopes}
+
+    @app.get("/api/security/audit", response_model=None)
+    async def audit_recent(
+        request: Request, limit: int = Query(default=50, le=200)
+    ) -> Response | list[dict[str, Any]]:
+        identity = getattr(request.state, "identity", None)
+        if identity is None or not identity.has_scope("security:manage"):
+            return JSONResponse(status_code=403, content={"detail": "security:manage scope required"})
+        return await get_security().audit.recent(limit=limit)
+
+    # ---------------------------------------------------- GitHub integration
+    @app.get("/api/github/status", response_model=None)
+    async def github_status() -> Response | dict[str, Any]:
+        from agent_hive.github_integration.client import GitHubClient
+
+        client = GitHubClient()
+        try:
+            status = {
+                "mode": client.mode,
+                "token_present": bool(client.token),
+                "repo": f"{client.owner}/{client.repo}" if client.owner and client.repo else None,
+                "reported_scopes": client.reported_scopes,
+            }
+            return status
+        finally:
+            await client.aclose()
+
+    @app.post("/api/github/scan", response_model=None)
+    async def github_scan(request: Request) -> Response | dict[str, Any]:
+        from agent_hive.github_integration.client import GitHubClient
+
+        payload = await request.json()
+        files = payload.get("files") or {}
+        if not isinstance(files, dict) or not files:
+            return JSONResponse(status_code=422, content={"detail": "files map required"})
+        client = GitHubClient()
+        try:
+            return await client.security_scan({str(k): str(v) for k, v in files.items()})
+        finally:
+            await client.aclose()
+
+    @app.post("/api/github/operation", response_model=None)
+    async def github_operation(request: Request) -> Response | dict[str, Any]:
+        """Run one GitHub operation under the configured mode gate."""
+        from agent_hive.github_integration.client import GitHubClient
+
+        payload = await request.json()
+        op = str(payload.get("op") or "")
+        params = payload.get("params") or {}
+        client = GitHubClient()
+        try:
+            method = getattr(client, op, None)
+            if method is None or not op.startswith(("get_", "list_", "create_", "commit_", "add_", "review_", "merge_", "search_")):
+                return JSONResponse(status_code=422, content={"detail": f"unsupported operation '{op}'"})
+            result = await method(**params)
+            return {"operation": op, "result": result}
+        except PermissionDenied as exc:
+            return JSONResponse(status_code=403, content={"detail": str(exc)})
+        except AgentError as exc:
+            return JSONResponse(status_code=400, content={"detail": str(exc)})
+        finally:
+            await client.aclose()
+
+    # ------------------------------------------------------------ self-heal
+    @app.get("/api/selfheal/report")
+    async def selfheal_report() -> dict[str, Any]:
+        hive = get_hive()
+        if hive.selfheal is None:
+            return {"enabled": False}
+        return {
+            "enabled": True,
+            "safe_stop_triggered": hive.selfheal.safe_stop_triggered,
+            "consecutive_failures": hive.selfheal._consecutive_failures,
+            "last_reports": [r.as_dict() for r in hive.selfheal.reports[-5:]],
+        }
+
+    @app.post("/api/selfheal/run")
+    async def selfheal_run() -> dict[str, Any]:  # noqa: ANN201
+        hive = get_hive()
+        if hive.selfheal is None:
+            from agent_hive.selfheal.loop import SelfHeal
+
+            hive.selfheal = SelfHeal(hive)
+        healer: Any = hive.selfheal
+        report = await healer.run_cycle()
+        return report.as_dict()
+
     return app
+
+
+def _error_status(error: dict[str, Any] | None) -> int:
+    code = (error or {}).get("code", "")
+    return {
+        "rate_limited": 429,
+        "injection_blocked": 400,
+        "invalid_request": 422,
+        "permission_denied": 403,
+        "timeout": 504,
+        "session_not_found": 404,
+    }.get(code, 500)
+
+
+def _build_registry_fallback():
+    from agent_hive.mcp.tools import build_registry
+
+    return build_registry()
 
 
 app = create_app()
