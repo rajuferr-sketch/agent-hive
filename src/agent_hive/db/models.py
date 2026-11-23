@@ -14,6 +14,9 @@ issues          issue tracker (open/in_progress/blocked/resolved/closed)
 issue_comments  threaded discussion on issues
 pull_requests   PR lifecycle (open/changes_requested/approved/merged/closed)
 pr_reviews      per-agent review verdicts on pull requests
+universal_memory cross-client persistent shared memory (MCP/Gateway era)
+api_tokens      hashed API tokens with scopes/revocation/rotation
+audit_log       append-only security audit trail
 """
 
 from __future__ import annotations
@@ -335,3 +338,98 @@ class PullRequestReview(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, index=True)
 
     pull_request: Mapped[PullRequest] = relationship(back_populates="reviews")
+
+
+# ---------------------------------------------------------------------------
+# Universal AI Platform tables (MCP / Gateway / Shared Memory / Security)
+# ---------------------------------------------------------------------------
+
+
+class UniversalMemory(Base):
+    """Cross-client persistent shared memory.
+
+    Every AI client (Claude Desktop, ChatGPT, Gemini, Z.ai, Ollama frontends,
+    REST/WS callers...) writes and reads the *same* store, so work started
+    with one client can be continued with another. Isolation is provided by
+    the ``(user_id, project_id, session_id)`` namespace; ``memory_type``
+    separates episodic / semantic / operational / task / decision records.
+    """
+
+    __tablename__ = "universal_memory"
+
+    TYPE_EPISODIC = "episodic"
+    TYPE_SEMANTIC = "semantic"
+    TYPE_OPERATIONAL = "operational"
+    TYPE_TASK = "task"
+    TYPE_DECISION = "decision"
+    ALL_TYPES = {TYPE_EPISODIC, TYPE_SEMANTIC, TYPE_OPERATIONAL, TYPE_TASK, TYPE_DECISION}
+
+    ACCESS_PRIVATE = "private"    # only the owning user
+    ACCESS_PROJECT = "project"    # any client on the same project
+    ACCESS_PUBLIC = "public"      # any client
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_gen_id)
+    user_id: Mapped[str] = mapped_column(String(64), default="default", index=True)
+    project_id: Mapped[str] = mapped_column(String(64), default="default", index=True)
+    session_id: Mapped[str] = mapped_column(String(64), default="global", index=True)
+    memory_type: Mapped[str] = mapped_column(String(16), index=True)
+    key: Mapped[str] = mapped_column(String(256))
+    content: Mapped[str] = mapped_column(Text, default="")           # searchable text
+    value: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    tags: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    embedding: Mapped[list[Any]] = mapped_column(JSON, default=list)  # hashed vector
+    content_hash: Mapped[str] = mapped_column(String(64), default="", index=True)
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    access: Mapped[str] = mapped_column(String(16), default=ACCESS_PROJECT)
+    ttl_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True, index=True)
+    created_by_client: Mapped[str] = mapped_column(String(64), default="")
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, default=_utcnow, onupdate=_utcnow
+    )
+
+    __table_args__ = (
+        UniqueConstraint(
+            "user_id", "project_id", "session_id", "memory_type", "key",
+            name="uq_universal_memory_key",
+        ),
+        Index("ix_umem_ns", "user_id", "project_id", "session_id"),
+    )
+
+
+class ApiToken(Base):
+    """Hashed API token with scopes, expiry, revocation and rotation."""
+
+    __tablename__ = "api_tokens"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=_gen_id)
+    subject: Mapped[str] = mapped_column(String(64), default="")     # owner identity
+    role: Mapped[str] = mapped_column(String(32), default="client")
+    prefix: Mapped[str] = mapped_column(String(16), index=True)      # first chars, display only
+    token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    scopes: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    created_at: Mapped[datetime] = mapped_column(DateTime, default=_utcnow)
+    expires_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_used_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    rotated_from: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+
+class AuditLog(Base):
+    """Append-only audit trail: who did what, with which outcome.
+
+    Values are pre-redacted (secrets → [REDACTED]) before insertion; this
+    table never stores raw arguments containing credentials.
+    """
+
+    __tablename__ = "audit_log"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    ts: Mapped[datetime] = mapped_column(DateTime, default=_utcnow, index=True)
+    actor: Mapped[str] = mapped_column(String(128), default="")
+    action: Mapped[str] = mapped_column(String(64), index=True)
+    resource: Mapped[str] = mapped_column(String(128), default="")
+    outcome: Mapped[str] = mapped_column(String(16), default="ok")   # ok | denied | error
+    client: Mapped[str] = mapped_column(String(64), default="")      # mcp/openai/rest/ws/...
+    meta: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)

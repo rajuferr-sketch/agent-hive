@@ -238,6 +238,48 @@ def repo_import_cmd(url: str = typer.Argument(..., help="GitHub repository URL")
     _run(_run_import())
 
 
+@app.command("mcp")
+def mcp_serve() -> None:
+    """Run AgentHive as a local MCP server over STDIO (Claude Desktop et al.).
+
+    Example claude_desktop_config.json entry::
+
+        "agent-hive": {"command": "agent-hive", "args": ["mcp"]}
+    """
+    from agent_hive.mcp.stdio import run_stdio
+
+    hive = Hive()
+    code = run_stdio(hive, hive.umemory)
+    raise typer.Exit(code=code)
+
+
+@app.command("token")
+def token_cmd(
+    subject: str = typer.Option("client", "--subject", help="Owner identity"),
+    role: str = typer.Option("client", "--role", help="admin|operator|client|readonly"),
+    ttl_s: int | None = typer.Option(None, "--ttl", help="Lifetime in seconds"),
+    list_all: bool = typer.Option(False, "--list", help="List existing tokens"),
+) -> None:
+    """Issue or list API tokens (scopes derive from the role)."""
+    from agent_hive.security.rbac import role_scopes
+    from agent_hive.security.tokens import TokenManager
+
+    async def _token() -> None:
+        manager = TokenManager()
+        if list_all:
+            rows = await manager.list_tokens()
+            console.print_json(json.dumps(rows, default=str, indent=2))
+            return
+        ident, raw = await manager.issue(
+            subject=subject, scopes=role_scopes(role), role=role, ttl_s=ttl_s
+        )
+        console.print("[green]Token issued (shown once):[/green]")
+        console.print(raw)
+        console.print(f"id={ident.token_id} role={ident.role} scopes={ident.scopes}")
+
+    _run(_token())
+
+
 def main() -> None:
     app()
 

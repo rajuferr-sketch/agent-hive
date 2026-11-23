@@ -47,6 +47,34 @@ class Settings(BaseSettings):
     enable_file_tools: bool = False
     enable_http_tools: bool = False
 
+    # ---- Universal AI Platform (MCP / Gateway / connectors / security) ----
+    # Master token: when set, it acts as an implicit admin token (hash is
+    # computed at verify time; the raw value only lives in the environment).
+    api_master_token: str = ""
+    # Token lifetime (seconds) for tokens issued without explicit TTL.
+    token_default_ttl: int = 86400 * 7
+    # Rate limiting (requests per window per token/IP).
+    rate_limit_requests: int = 120
+    rate_limit_window: int = 60
+    # Gateway
+    gateway_max_concurrent: int = 16
+    gateway_request_timeout: int = 300
+    # MCP
+    mcp_server_name: str = "agent-hive"
+    mcp_tool_timeout: int = 120          # default per-tool execution timeout
+    mcp_max_sessions: int = 256
+    # Self-heal
+    selfheal_enabled: bool = True
+    selfheal_interval: float = 30.0
+    selfheal_max_retries: int = 3
+    selfheal_budget_s: float = 60.0
+    selfheal_fail_limit: int = 5         # consecutive failing cycles → safe stop
+    # Universal memory
+    universal_memory_dims: int = 128     # hashed-embedding dimensions
+    universal_memory_ttl_default: int = 0  # 0 = no expiry
+    # GitHub integration: read_only | assisted | semi_autonomous | autonomous
+    github_mode: str = "read_only"
+
     def ensure_dirs(self) -> None:
         """Create runtime directories if missing.
 

@@ -4,7 +4,7 @@ Dependency graph (acyclic)::
 
     settings/system-config ──▶ db ──▶ memory ──┐
                                                ├─▶ runtime ─▶ scheduler ─▶ master
-    event-bus ─▶ task-manager ─────────────────┘
+    event-bus ─▶ task-manager ────────────────┘
 
 ``startup()`` is idempotent and ordered: schema → agents → heartbeat →
 scheduler → recovery of interrupted tasks.
@@ -26,6 +26,7 @@ from agent_hive.orchestrator.master import MasterAgent
 from agent_hive.pulls.manager import PullRequestManager
 from agent_hive.tasks.manager import TaskManager
 from agent_hive.tasks.scheduler import Scheduler
+from agent_hive.universal_memory.universal import UniversalMemoryManager
 from agent_hive.version import __version__
 
 log = get_logger("agent_hive.hive")
@@ -40,6 +41,7 @@ class Hive:
         self.config: SystemConfig = load_system_config()
         self.events = EventBus()
         self.memory = MemoryManager()
+        self.umemory = UniversalMemoryManager()
         self.bus = MessageBus()
         self.tasks = TaskManager(self.events)
         self.issues = IssueManager(self.events)
@@ -63,6 +65,14 @@ class Hive:
             self.runtime, self.tasks, self.scheduler,
             self.memory, self.bus, self.events, self.config,
         )
+        # Universal AI Platform wiring (MCP / gateway / connectors / security)
+        from agent_hive.mcp.tools import get_registry
+
+        self.tool_registry = get_registry()
+        from agent_hive.gateway.gateway import UniversalGateway
+
+        self.gateway = UniversalGateway(self, self.umemory, self.tool_registry)
+        self.selfheal: Any = None  # started lazily by the API/CLI layer
         self._started = False
 
     async def startup(self) -> None:
@@ -75,6 +85,7 @@ class Hive:
         orphaned = await self.tasks.recover()
         self.scheduler.start()
         self.events.start()
+        self.gateway.start()
         self._started = True
         log.info(
             "AgentHive started: %d agents, mock=%s, orphaned tasks recovered=%d",
@@ -90,6 +101,9 @@ class Hive:
         if not self._started:
             return
         self._started = False
+        await self.gateway.stop()
+        if self.selfheal is not None:
+            await self.selfheal.stop()
         await self.scheduler.stop()
         await self.runtime.stop()
         await self.events.stop()
@@ -111,6 +125,9 @@ class Hive:
             "agent_names": list(self.runtime.agents),
             "mock_allowed": self.settings.allow_mock,
             "database": self.settings.database_url.split("://")[0],
+            "gateway": self.gateway.status(),
+            "mcp_tools": self.tool_registry.names(),
+            "github_mode": self.settings.github_mode,
             "config": {
                 "simple_threshold": self.config.simple_threshold,
                 "adaptive_threshold": self.config.adaptive_threshold,
