@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.2.0] - 2026-11-23 — Universal AI Platform
+
+### Added
+- **Universal MCP Server** (`mcp/`): 18 tools (`agent_list` … `agent_get_capabilities`) over Streamable HTTP (`POST /mcp`) and STDIO (`agent-hive mcp`), JSON-RPC 2.0 core with session handling, protocol negotiation (2025-03-26), MCP `isError` semantics, batch support, SSE responses — implemented without third-party MCP SDKs. Each tool: unique name, precise description, JSON-schema validation, permission scope, configurable timeout, structured `{ok, data|error}` responses, logging and audit.
+- **Universal AI Gateway** (`gateway/`): one front door for every client — validation, prompt-injection guard, rate limiting, mission translation, agent selection, bounded concurrency (semaphore), per-request timeout, cancellation, session resume from cross-client memory, history persistence.
+- **Universal Shared Memory** (`universal_memory/` + `universal_memory` table): cross-client persistent store with 5 memory types (episodic/semantic/operational/task/decision), user/project/session isolation, access levels (private/project/public), dedup by content hash, version counters, per-record TTL + purge, blended full-text + vector search (128-dim hashed embeddings, dependency-free).
+- **Universal Client Connectors** (`connectors/`): OpenAI-compatible server (`/v1/models`, `/v1/chat/completions` with tool invocation + SSE streaming, `/v1/responses` session resume), Ollama-compatible server (`/api/tags`, `/api/chat`, `/api/generate`), universal WebSocket (`/ws/universal`), generic tool-calling manifest + invocation parser.
+- **Security by design** (`security/`): scoped API tokens (SHA-256 hash-only storage, shown once, revoke, rotate, TTL), RBAC roles (admin/operator/client/readonly), sliding-window rate limiter, input sanitization, output secret redaction, prompt-injection heuristics, append-only audit log; explicit local-trust ↔ enforced trust model.
+- **GitHub integration** (`github_integration/`): async REST client with four safety modes (`read_only` default / `assisted` / `semi_autonomous` / `autonomous`), plan-based dry-runs, explicit `confirm` gates for destructive operations, token-scope diagnostics, built-in secret & dangerous-pattern scan.
+- **Auto-diagnostics & self-heal** (`selfheal/`): continuous bounded loop (DB, scheduler, agents, universal memory, event bus) with remediation retry caps, per-cycle time budget and safe-stop after repeated failures — no infinite loops by design.
+- **Native provider adapters**: `anthropic_native` (Claude Messages API) and `gemini_native` (Gemini generateContent) with documented wire-format differences; `providers/presets.py` registry with verified endpoint presets for OpenAI, Claude, Gemini, Z.ai, DeepSeek, Qwen, Mistral, Grok, Perplexity, OpenRouter, Ollama, LM Studio, llama.cpp, vLLM, LocalAI, HuggingFace.
+- **Tests**: 224 total (from 109) — MCP protocol/transports (STDIO end-to-end via subprocess), universal memory incl. the mandatory **UNIVERSAL CROSS-CLIENT MEMORY TEST** (Claude creates → hive executes → ChatGPT resumes → Z.ai reads → fresh process sees all), the mandatory **UNIVERSAL MCP TOOL EXECUTION TEST** (initialize → discover → schema → execute → error → ping → close), gateway guards, connectors over the real app (lifespan + middleware), security lifecycle, GitHub client (MockTransport), self-heal limits, provider adapters.
+- **Docs**: `docs/MCP_SETUP.md`, `docs/CLAUDE_SETUP.md`, `docs/CHATGPT_SETUP.md`, `docs/GEMINI_SETUP.md`, `docs/ZAI_SETUP.md`, `docs/OLLAMA_SETUP.md`, `docs/LOCAL_MODELS.md`, `docs/API_REFERENCE.md`, `docs/SECURITY.md`, `docs/DOCKER_SETUP.md`; `docs/troubleshooting.md` + `docs/architecture.md` extended; README "Universal AI Platform" section; `.env.example` and `docker-compose.yml` updated with the new environment surface.
+
+### Changed
+- `Hive` composition root wires gateway, universal memory, tool registry, self-heal lifecycle; `hive.status()` reports gateway/MCP/GitHub state.
+- `api/app.py`: token auth + rate-limit middleware (optional-by-default), mounted MCP/connector routers, universal gateway/memory/security/GitHub/self-heal endpoints; legacy API-key guard kept.
+- `db/models.py`: new tables `universal_memory`, `api_tokens`, `audit_log` (schema created idempotently by `create_all`).
+- `config/settings.py`: new environment surface (gateway, MCP, self-heal, security, universal memory, GitHub mode).
+- CLI: `agent-hive mcp` (STDIO server), `agent-hive token` (issue/list).
+
+### Fixed
+- (carried over) Python 3.10 `asyncio.TimeoutError` scheduler bug and W292 lint (see 1.1.x notes).
+
+### Pending
+- T-002: apply the CI matrix workflow (owner action — `workflows` permission).
+- Live-key verification of cloud provider calls (Anthropic/Gemini/Z.ai/… adapters are contract-tested; real-key behaviour is vendor-side).
+
 ## [Unreleased] - 2026-11-23
 ### Added
 - **AI documentation package** ("Parte completa per IA cloud e locale"): `AI_CONTEXT.md` (universal quick start, minimal offline configuration, CLI commands, universal AI rules, preserved structure, package application status, ready-made AI prompt, target end state, ready-to-apply CI spec), `docs/providers.md` extended with local providers (Ollama, LM Studio, vLLM, LiteLLM), cloud providers (OpenAI, Z.AI/GLM, Azure OpenAI, Anthropic, Google Gemini) and the full provider contract, `docs/deployment.md` (Docker workflow + mandatory security checklist), `docs/migrations.md` (PostgreSQL/Alembic plan), `docs/compatibility.md` (per-AI instructions for Claude, ChatGPT/Codex, Z.AI/GLM), `docs/windows.md`, `docs/troubleshooting.md`, `docs/ai-workflow.md` (GitHub methodology, correct modification order).

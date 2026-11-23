@@ -45,6 +45,17 @@
 
 ## Compiti completati
 
+### T-004 — AgentHive Universal AI Platform (MCP + gateway + memoria condivisa + connettori + sicurezza + GitHub + self-heal)
+- **Stato:** done
+- **Priorità:** alta
+- **Assegnato a:** Z.AI (chat utente, sessione 2026-11-23)
+- **Descrizione:** trasformare AgentHive in una piattaforma AI universale: MCP server (18 tool, Streamable HTTP + STDIO), Universal AI Gateway, memoria condivisa persistente cross-client, connettori client (OpenAI-compatible, Ollama, WS, generic tool-calling), sicurezza by design (token/scopes/RBAC/rate-limit/audit/anti-injection), integrazione GitHub a 4 modalità, auto-diagnostica self-heal con limiti, Docker + documentazione completa, test obbligatori inclusi i due test nominati.
+- **Criteri di accettazione:** 18 tool MCP realmente implementati e verificati; memoria condivisa con persistenza reale tra client diversi (test dedicato); gateway con concorrenza/timeout/cancel/resume; 6+ connettori lato server; token lifecycle completo; GitHub client con mode gates; self-heal con retry cap/budget/safe-stop; suite verde su 3.10/3.11/3.12; ruff + mypy puliti; Docker/.env aggiornati; 14+ documenti nuovi/aggiornati.
+- **Vincoli:** nessun nuovo pip dependency; nessun segreto nel repo; niente claim non verificati (VERIFIED/PARTIALLY VERIFIED/IMPLEMENTED/DOCUMENTED/BLOCKED nel report finale).
+- **Esito / note:** completato il 2026-11-23. Nuovi moduli: `mcp/` (schema, tools, server, http, stdio), `gateway/`, `universal_memory/`, `security/` (tokens, rbac, ratelimit, sanitize, audit, middleware), `connectors/` (openai_api, ollama_api, ws, generic), `github_integration/`, `selfheal/`, `providers/anthropic.py`, `providers/gemini.py`, `providers/presets.py`, `src/agent_hive/__main__.py`. Modificati: `hive.py`, `api/app.py`, `db/models.py` (3 nuove tabelle), `config/settings.py`, `cli.py`, `docker-compose.yml`, `.env.example`. Test: 224/224 su 3.10/3.11/3.12 (da 109), inclusi `test_UNIVERSAL_CROSS_CLIENT_MEMORY_TEST` e `test_UNIVERSAL_MCP_TOOL_EXECUTION_TEST` + STDIO end-to-end con subprocess reale. Ruff pulito, mypy pulito (107 file). Residuo: T-002 (CI matrix, permesso owner); verifica con API key reali dei provider cloud (contract-tested, non live).
+
+
+
 ### T-001 — Integrare il pacchetto "Parte completa per IA cloud e locale"
 - **Stato:** done
 - **Priorità:** alta
