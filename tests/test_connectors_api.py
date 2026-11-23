@@ -142,7 +142,7 @@ def test_ollama_generate_tool_call(client: TestClient) -> None:
 def test_universal_tools_manifest(client: TestClient) -> None:
     body = client.get("/api/universal/tools").json()
     assert body["count"] == 18
-    names = {t["name"] for t in body["tools"]}
+    names = [t["name"] for t in body["tools"]]
     assert "agent_execute" in names and "agent_search_memory" in names
 
 
