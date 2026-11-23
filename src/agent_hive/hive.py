@@ -4,7 +4,7 @@ Dependency graph (acyclic)::
 
     settings/system-config ──▶ db ──▶ memory ──┐
                                                ├─▶ runtime ─▶ scheduler ─▶ master
-    event-bus ─▶ task-manager ──────────────────┘
+    event-bus ─▶ task-manager ────────────────┘
 
 ``startup()`` is idempotent and ordered: schema → agents → heartbeat →
 scheduler → recovery of interrupted tasks.
