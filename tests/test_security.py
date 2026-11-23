@@ -152,7 +152,7 @@ def test_redact_secrets_covers_common_formats() -> None:
 
 
 def test_sanitize_input_strips_control_chars_and_caps() -> None:
-    dirty = "ok\nline\x00bad\x1b"
+    dirty = "ok\nline\x00bad\x1b[31m"
     cleaned = sanitize_input(dirty)
     assert "\x00" not in cleaned and "\x1b" not in cleaned
     assert "\n" in cleaned  # newlines preserved
