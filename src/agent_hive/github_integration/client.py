@@ -51,13 +51,13 @@ SECRET_SCAN_RULES: tuple[tuple[str, str], ...] = (
     ("google-api-key", r"AIza[0-9A-Za-z_-]{30,}"),
     ("jwt", r"eyJ[A-Za-z0-9_-]{20,}\.[A-Za-z0-9_-]{10,}"),
     ("private-key-header", r"-----BEGIN [A-Z ]*PRIVATE KEY-----"),
-    ("hardcoded-password", r"(?i)(password|passwd)\s*=\s*[\"'][^\"']{8,}[\"]"),
+    ("hardcoded-password", r"(?i)(password|passwd)\s*=\s*[\"'][^\"']{8,}[\"']"),
 )
 DANGEROUS_CODE_RULES: tuple[tuple[str, str], ...] = (
     ("shell-true", r"(?i)shell\s*=\s*True"),
     ("eval-usage", r"(?<![\w.])eval\s*\("),
     ("yaml-unsafe-load", r"yaml\.load\((?![^)]*Loader)"),
-    ("sql-format-string", r"(?i)execute\(\s*f[\"]"),
+    ("sql-format-string", r"(?i)execute\(\s*f[\"']"),
     ("verify-false-tls", r"verify\s*=\s*False"),
 )
 
