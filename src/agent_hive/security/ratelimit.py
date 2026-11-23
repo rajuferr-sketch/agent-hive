@@ -8,7 +8,6 @@ settings so operators can tune without code changes.
 import time
 from collections import defaultdict, deque
 from dataclasses import dataclass
-from typing import Deque
 
 from agent_hive.config.settings import get_settings
 
@@ -25,7 +24,7 @@ class RateLimiter:
         settings = get_settings()
         self.limit = settings.rate_limit_requests if limit is None else limit
         self.window = settings.rate_limit_window if window_s is None else window_s
-        self._hits: dict[str, Deque[float]] = defaultdict(deque)
+        self._hits: dict[str, deque[float]] = defaultdict(deque)
         self._monotonic = time.monotonic
 
     def check(self, key: str) -> RateVerdict:

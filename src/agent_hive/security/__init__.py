@@ -11,8 +11,8 @@ redaction, size caps).
 """
 
 from agent_hive.security.audit import AuditLogger
-from agent_hive.security.rbac import Role, all_scopes, role_scopes
 from agent_hive.security.ratelimit import RateLimiter
+from agent_hive.security.rbac import Role, all_scopes, role_scopes
 from agent_hive.security.sanitize import (
     detect_prompt_injection,
     redact_secrets,

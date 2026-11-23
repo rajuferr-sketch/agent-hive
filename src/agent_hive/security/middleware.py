@@ -65,6 +65,7 @@ class SecurityCoordinator:
         configured = await self._security_configured()
 
         # Legacy static key keeps working (compat) — admin identity.
+        legacy = getattr(settings, "_legacy_api_key", "") or ""
         import os
 
         legacy = os.getenv("AGENT_HIVE_API_KEY", "")
