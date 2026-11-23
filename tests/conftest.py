@@ -91,3 +91,31 @@ async def hive():
 async def bus():
     """A message bus bound to the shared test database."""
     return MessageBus()
+
+@pytest.fixture(autouse=True)
+async def _clean_security_state():
+    """After each test: purge tokens so the process returns to local-trust mode.
+
+    Tests that exercise token flows issue and revoke within their own body;
+    this guard keeps one test's state from leaking into the next (the
+    security model switches to enforced mode as soon as an active token
+    exists, which would otherwise change behaviour of later tests).
+    """
+    yield
+    from sqlalchemy import delete
+
+    from agent_hive.api.app import get_security
+    from agent_hive.db.base import get_session_factory
+    from agent_hive.db.models import ApiToken
+
+    try:
+        factory = get_session_factory()
+        async with factory() as sess:
+            await sess.execute(delete(ApiToken))
+            await sess.commit()
+    except Exception:  # noqa: BLE001 — best-effort cleanup
+        pass
+    try:
+        get_security().invalidate_cache()
+    except Exception:  # noqa: BLE001
+        pass
