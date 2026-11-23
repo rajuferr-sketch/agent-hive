@@ -33,6 +33,15 @@ services:
       OPENAI_API_KEY: ${OPENAI_API_KEY:-}
       OPENAI_BASE_URL: ${OPENAI_BASE_URL:-https://api.openai.com/v1}
       OLLAMA_BASE_URL: ${OLLAMA_BASE_URL:-http://localhost:11434}
+      # --- Universal AI Platform (see .env.example and docs/SECURITY.md) ---
+      API_MASTER_TOKEN: ${API_MASTER_TOKEN:-}
+      AGENT_HIVE_GITHUB_MODE: ${AGENT_HIVE_GITHUB_MODE:-read_only}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      GITHUB_OWNER: ${GITHUB_OWNER:-}
+      GITHUB_REPO: ${GITHUB_REPO:-}
+      GATEWAY_MAX_CONCURRENT: ${GATEWAY_MAX_CONCURRENT:-16}
+      GATEWAY_REQUEST_TIMEOUT: ${GATEWAY_REQUEST_TIMEOUT:-300}
+      SELFHEAL_ENABLED: ${SELFHEAL_ENABLED:-true}
     ports:
       - "8000:8000"
     volumes:
