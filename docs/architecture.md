@@ -148,7 +148,7 @@ stateDiagram-v2
 `orchestrator/quality.py` scores the deliverable from 1.0 downward and persists a `verifications` row + a history memory entry + a `quality.verified` event:
 
 | Check | Weight (deduction on failure) | What it does |
-|---|---|
+|---|---|---|
 | completeness | −0.40 | Deliverable must be substantive (≥ 80 chars) |
 | requirements | −0.25 | Keyword coverage of title+description must reach 40% (configurable via `qa_requirement_check`) |
 | code (per block) | −0.30 | Every fenced ```python block is AST-parsed and compiled — **never executed** |

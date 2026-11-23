@@ -53,7 +53,7 @@
 ### `tools/call` restituisce `isError: true` con `permission_denied`
 
 - **Causa:** il token della sessione MCP/REST non possiede lo scope richiesto dal tool (es. `memory:write` per `agent_save_memory`).
-- **Soluzione:** emettere un token con il ruolo corretto (`agent-hive token --role operator`), e usarlo come `Authorization: Bearer`; oppure, in modalità enforced, verificare la tabella `api_tokens` (`GET /api/security/tokens`). In local-trust mode l'identità è admin: se vedete `permission_denied` in locale, esiste almeno un token attivo → siete in enforced mode.
+- **Soluzione:** emettere un token con il ruolo corretto (`agent-hive token --role operator`) e usarlo come `Authorization: Bearer`; oppure, in modalità enforced, verificare la tabella `api_tokens` (`GET /api/security/tokens`). In local-trust mode l'identità è admin: se vedete `permission_denied` in locale, esiste almeno un token attivo → siete in enforced mode.
 
 ### `429 Too Many Requests` / `rate_limited`
 
