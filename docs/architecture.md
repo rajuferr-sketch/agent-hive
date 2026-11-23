@@ -148,7 +148,7 @@ stateDiagram-v2
 `orchestrator/quality.py` scores the deliverable from 1.0 downward and persists a `verifications` row + a history memory entry + a `quality.verified` event:
 
 | Check | Weight (deduction on failure) | What it does |
-|---|---|---|
+|---|---|
 | completeness | −0.40 | Deliverable must be substantive (≥ 80 chars) |
 | requirements | −0.25 | Keyword coverage of title+description must reach 40% (configurable via `qa_requirement_check`) |
 | code (per block) | −0.30 | Every fenced ```python block is AST-parsed and compiled — **never executed** |
@@ -203,3 +203,62 @@ sequenceDiagram
 - **No vendor lock-in.** All LLM access goes through the `LLMProvider` interface and per-agent fallback chains. Any OpenAI-compatible server (OpenAI, Azure gateways, vLLM, LM Studio, LiteLLM, Groq, Together, DeepSeek), any Ollama instance, or the deterministic mock can serve every agent, per agent.
 - **Database as source of truth.** Tasks, messages, memory and verifications are rows, not in-memory state — restarts are safe, recovery is a status reset, and the same models run on PostgreSQL (production) and SQLite (tests/local).
 - **Verification before delivery.** Nothing reaches the client without passing the quality gate (or after its two revision rounds, with the gate verdict reported honestly).
+
+---
+
+# Universal AI Platform architecture (addendum)
+
+The orchestration core described above is now reachable through a universal
+connectivity layer. Dependency graph (acyclic, extends the core one):
+
+```text
+settings ──▶ db ──▶ memory ──┐
+                             ├─▶ runtime ─▶ scheduler ─▶ master
+event-bus ─▶ task-manager ───┘
+                             │
+universal_memory ────────────┤
+mcp/tools (18 tool specs) ───┤
+                             │
+gateway ──▶ mcp.tools.call ──┘          # single capability surface
+   ▲
+   ├── connectors/openai_api   (/v1/*)
+   ├── connectors/ollama_api   (/api/chat, /api/generate, /api/tags)
+   ├── connectors/ws           (/ws/universal)
+   ├── mcp/http                (POST /mcp, Streamable HTTP)
+   ├── mcp/stdio               (agent-hive mcp)
+   └── api/app REST            (/api/universal/*)
+
+security: middleware (auth+rate limit) → tokens/RBAC → audit
+selfheal: bounded loop → safe-stop callback = hive.shutdown
+```
+
+## Module responsibilities
+
+| Module | Responsibility |
+| --- | --- |
+| `mcp/tools.py` | The 18 tool specs (name, description, JSON schema, scope, timeout, handler); registry validates → authorizes → times → wraps errors into `{ok, data\|error}` |
+| `mcp/server.py` | JSON-RPC 2.0 core: initialize/version negotiation, session objects, tools/list, tools/call with MCP `isError` semantics, protocol error codes |
+| `mcp/http.py` | Streamable HTTP transport: session header, 202 for notifications, optional SSE, DELETE = session end |
+| `mcp/stdio.py` | Local transport: line-delimited JSON-RPC; locally-trusted session |
+| `universal_memory/` | Cross-client store: 5 memory types, namespace isolation, dedup + versioning, TTL purge, blended full-text/vector search (hashed 128-dim embeddings) |
+| `gateway/` | The one front door: sanitize → injection guard → rate limit → mission translation → execution → history persistence → structured response; semaphore + timeout + cancellation + resume |
+| `security/` | Token lifecycle (hash-only storage, revoke/rotate), RBAC scope sets, sliding-window rate limiter, input/output sanitization, prompt-injection heuristics, audit writer |
+| `connectors/` | Server-side protocol adapters; all of them call the gateway/tool registry so behaviour is identical across clients |
+| `providers/anthropic.py`, `providers/gemini.py` | Native adapters for the two major non-OpenAI-compatible APIs (documented wire differences in the module docstrings) |
+| `providers/presets.py` | Verified endpoint presets: OpenAI, Claude, Gemini, Z.ai, DeepSeek, Qwen, Mistral, Grok, Perplexity, OpenRouter + Ollama, LM Studio, llama.cpp, vLLM, LocalAI, HuggingFace |
+| `github_integration/` | Mode-gated GitHub REST client (`read_only` → `autonomous`), confirmation gates for destructive ops, local security scan |
+| `selfheal/` | Continuous bounded self-checks (DB, scheduler, agents, memory, events) with remediation retry caps, per-cycle budget and safe-stop |
+
+## Invariants worth knowing
+
+1. **One capability surface.** Every connector exposes exactly the 18
+   registry tools; adding a 19th tool is a single registration in
+   `mcp/tools.py` — clients discover it via `tools/list` /
+   `GET /api/universal/tools`.
+2. **One memory.** Missions, tool calls and gateway exchanges persist to
+   `universal_memory`; the cross-client continuation flow (create with A →
+   resume with B) is a verified test, not an aspiration.
+3. **Trust is explicit.** Local-trust ↔ enforced mode is a live property of
+   token state, identical for HTTP middleware, MCP sessions and the gateway.
+4. **Nothing runs unbounded.** Tools, gateway requests, remediation loops
+   and rate windows all have hard budgets.
