@@ -23,6 +23,58 @@ Install once: `pip install -r requirements.txt`. No API key required (determinis
 
 ---
 
+## Universal AI Platform — every AI client, one hive
+
+AgentHive is also a **universal AI connectivity layer**: any client — Claude
+Desktop, ChatGPT, Gemini, Z.ai, DeepSeek, Qwen, Mistral, Grok, Perplexity,
+Ollama frontends, LM Studio, vLLM, llama.cpp, LocalAI, plain REST/WebSocket —
+reaches the *same* 18 tools, the *same* gateway and the *same* persistent
+shared memory. Work started with one client can be continued with another.
+
+```text
+USER/AI CLIENT (MCP | REST | WS | OpenAI-compat | Ollama-compat | tool-calling)
+        │
+        ▼
+  UNIVERSAL AI GATEWAY ── identify · validate · rate-limit · translate to mission
+        │
+        ▼
+  MASTER AGENT → 20 SPECIALIST AGENTS (plan · delegate · parallel run · QA gate)
+        │
+        ▼
+  UNIVERSAL SHARED MEMORY (episodic/semantic/operational/task/decision,
+  full-text + vector search, TTL, versioning, per user/project/session)
+```
+
+* **MCP server** — 18 tools over Streamable HTTP (`POST /mcp`) and STDIO
+  (`agent-hive mcp`), JSON-RPC 2.0, session handling, structured errors. No
+  MCP SDK dependency. → [`docs/MCP_SETUP.md`](docs/MCP_SETUP.md)
+* **OpenAI-compatible server** — `/v1/models`, `/v1/chat/completions`
+  (incl. streaming + tool invocation), `/v1/responses` session resume.
+  → [`docs/CHATGPT_SETUP.md`](docs/CHATGPT_SETUP.md)
+* **Ollama-compatible server** — `/api/tags`, `/api/chat`, `/api/generate`:
+  point Open WebUI or any Ollama client at the hive. →
+  [`docs/OLLAMA_SETUP.md`](docs/OLLAMA_SETUP.md)
+* **WebSocket** — `/ws/universal` request/response protocol (+ `/ws` event
+  firehose).
+* **Cross-client memory** — the flagship feature: Claude creates a task →
+  the hive executes it → results stored in universal memory → ChatGPT (or
+  any client) picks it up later. Verified end-to-end by the mandatory
+  `UNIVERSAL CROSS-CLIENT MEMORY TEST` in the suite.
+* **Security by design** — scoped API tokens (hash-only storage, revoke,
+  rotate), RBAC roles, rate limiting, audit trail, prompt-injection guard,
+  secret redaction, optional enforced mode. → [`docs/SECURITY.md`](docs/SECURITY.md)
+* **GitHub integration** — repo reads, branches, commits, PRs, issues,
+  security scan; four safety modes (`read_only` → `autonomous`) with
+  explicit confirmation for destructive operations.
+* **Self-heal** — bounded auto-diagnostics loop (DB, scheduler, agents,
+  memory) with retry caps, time budget and safe-stop.
+* **Install** — `git clone && cd agent-hive && docker compose up -d` →
+  [`docs/DOCKER_SETUP.md`](docs/DOCKER_SETUP.md).
+
+The full REST/API surface: [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md).
+
+---
+
 ## Features
 
 - **Autonomous Master Agent** — analyzes complexity, decomposes work into a task DAG, delegates, monitors, integrates, and verifies before delivering (10 documented responsibilities, see [docs/architecture.md](docs/architecture.md)).
@@ -300,6 +352,13 @@ agent-hive/
 │   └── smoke_test.py              # mock-mode end-to-end check
 ├── src/agent_hive/
 │   ├── hive.py              # composition root (one Hive per process)
+│   ├── mcp/                 # MCP server: 18 tools, Streamable HTTP + STDIO
+│   ├── gateway/             # Universal AI Gateway
+│   ├── universal_memory/    # cross-client persistent shared memory
+│   ├── connectors/          # OpenAI-compat, Ollama-compat, WS, generic
+│   ├── security/            # tokens, RBAC, rate limit, sanitize, audit
+│   ├── github_integration/  # mode-gated GitHub client + security scan
+│   ├── selfheal/            # bounded auto-diagnostics loop
 │   ├── cli.py               # typer CLI
 │   ├── diagnostics.py       # shared environment checks
 │   ├── api/                 # FastAPI app + schemas
@@ -333,6 +392,9 @@ agent-hive/
 | [docs/extending.md](docs/extending.md) | Add agent #21, tools, providers; tuning & scaling |
 | [docs/operations.md](docs/operations.md) | Install, PostgreSQL, diagnostics, recovery, troubleshooting |
 | [docs/examples.md](docs/examples.md) | 3 end-to-end worked missions + Python SDK usage |
+
+**Universal AI Platform:** [`docs/MCP_SETUP.md`](docs/MCP_SETUP.md) · [`docs/CLAUDE_SETUP.md`](docs/CLAUDE_SETUP.md) · [`docs/CHATGPT_SETUP.md`](docs/CHATGPT_SETUP.md) · [`docs/GEMINI_SETUP.md`](docs/GEMINI_SETUP.md) · [`docs/ZAI_SETUP.md`](docs/ZAI_SETUP.md) · [`docs/OLLAMA_SETUP.md`](docs/OLLAMA_SETUP.md) · [`docs/LOCAL_MODELS.md`](docs/LOCAL_MODELS.md) · [`docs/API_REFERENCE.md`](docs/API_REFERENCE.md) · [`docs/SECURITY.md`](docs/SECURITY.md) · [`docs/DOCKER_SETUP.md`](docs/DOCKER_SETUP.md)
+
 
 ## Development
 
